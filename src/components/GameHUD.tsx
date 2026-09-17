@@ -5,13 +5,13 @@ import {
   Heart,
   Zap,
   Sparkles,
-  Sword,
   Skull,
   Compass,
   ArrowRight,
   BookOpen,
   HelpCircle,
 } from 'lucide-react';
+import { CharacterPortrait } from './CharacterPortrait';
 
 interface GameHUDProps {
   player: Entity;
@@ -176,9 +176,11 @@ export const GameHUD: React.FC<GameHUDProps> = ({
           <div className="h-20 bg-[#0d0f17] border-t border-[#1f2436] px-4 py-2 flex items-center justify-between shrink-0 z-10 gap-3">
             {/* Player Quick Stats */}
             <div className="flex items-center gap-3 shrink-0">
-              <div className="w-11 h-11 rounded-xl bg-[#141824] border border-[#272e45] flex items-center justify-center text-amber-400 shrink-0">
-                <Sword className="w-5 h-5" />
-              </div>
+              <CharacterPortrait
+                classType={player.classType}
+                size={44}
+                className="rounded-xl shadow-lg ring-1 ring-amber-500/40 shrink-0"
+              />
 
               <div>
                 <div className="flex items-center gap-2">

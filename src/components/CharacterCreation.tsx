@@ -14,13 +14,11 @@ import {
   Heart,
   Zap,
   Sparkles,
-  Sword,
-  Crosshair,
-  Wand2,
   Compass,
   CheckCircle2,
   Info,
 } from 'lucide-react';
+import { CharacterPortrait } from './CharacterPortrait';
 
 interface CharacterCreationProps {
   onCharacterCreated: (character: Entity) => void;
@@ -198,10 +196,7 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({
                   >
                     <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-1.5 min-w-0">
-                        {cId === 'fighter' && <Sword className="w-3.5 h-3.5 text-red-400 shrink-0" />}
-                        {cId === 'rogue' && <Crosshair className="w-3.5 h-3.5 text-emerald-400 shrink-0" />}
-                        {cId === 'wizard' && <Wand2 className="w-3.5 h-3.5 text-purple-400 shrink-0" />}
-                        {cId === 'cleric' && <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />}
+                        <CharacterPortrait classType={cId} size={24} className="rounded-full shadow-sm" />
                         <span className="text-xs font-bold font-cinzel text-gray-100 truncate">
                           {c.title.split(' ')[0]}
                         </span>
@@ -218,14 +213,23 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({
 
             {/* Selected Class Details & Starting Skills */}
             <div className="p-2.5 rounded-xl bg-[#0b0d14] border border-[#1c2233] space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-gray-200 font-cinzel">
-                  {selectedClass.title}
-                </span>
-                <span className="text-[10px] font-mono text-gray-400">
-                  {selectedClass.role}
-                </span>
+              <div className="flex items-center gap-3">
+                <CharacterPortrait classType={selectedClassId} size={48} className="rounded-xl shadow-lg ring-1 ring-amber-500/30" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs sm:text-sm font-bold text-gray-100 font-cinzel">
+                      {selectedClass.title}
+                    </span>
+                    <span className="text-[9px] font-mono text-amber-400 font-bold px-1.5 py-0.5 rounded bg-amber-950/60 border border-amber-500/30">
+                      Hit Die d{selectedClass.hitDie}
+                    </span>
+                  </div>
+                  <span className="text-[10.5px] font-mono text-gray-400 block truncate">
+                    {selectedClass.role}
+                  </span>
+                </div>
               </div>
+
               <p className="text-[11px] text-gray-300 leading-snug">
                 {selectedClass.description}
               </p>
@@ -341,17 +345,20 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({
             </span>
 
             {/* Hero Alias Input */}
-            <div>
-              <label className="block text-[10px] font-mono text-gray-400 uppercase mb-1">
-                Nama Petualang (Alias)
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Masukkan nama petualang..."
-                className="w-full bg-[#090b10] border border-[#242b3d] focus:border-amber-500 rounded-lg px-2.5 py-1.5 text-xs font-bold text-gray-100 placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-amber-500 transition"
-              />
+            <div className="flex items-center gap-2.5">
+              <CharacterPortrait classType={selectedClassId} size={46} className="rounded-xl shadow-md ring-1 ring-amber-500/40" />
+              <div className="flex-1 min-w-0">
+                <label className="block text-[10px] font-mono text-gray-400 uppercase mb-0.5">
+                  Nama Petualang (Alias)
+                </label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Masukkan nama petualang..."
+                  className="w-full bg-[#090b10] border border-[#242b3d] focus:border-amber-500 rounded-lg px-2.5 py-1 text-xs font-bold text-gray-100 placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-amber-500 transition"
+                />
+              </div>
             </div>
 
             {/* Derived Combat Stats Badges */}
