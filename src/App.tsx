@@ -851,11 +851,11 @@ export function App() {
       reason: 'D&D 5e Death Saving Throw (1d20 pure)',
     });
 
-    if (result.revivedWithHp) {
+    if (result.revivedWithHp || result.updated.stabilized) {
       sound.playCrit();
       setPlayer({
         ...player,
-        hp: result.revivedWithHp,
+        hp: result.revivedWithHp || 1,
         conditions: player.conditions.filter((c) => c !== 'downed'),
         deathSaves: { successes: 0, failures: 0, stabilized: false, dead: false },
       });
@@ -866,10 +866,6 @@ export function App() {
       setPlayer({ ...player, deathSaves: result.updated });
       setPhase('game_over');
       addChronicle('death_save', '💀 3 KEGAGALAN TERCAPAI. Nyawamu terenggut di dalam reruntuhan kuno. GAME OVER.');
-    } else if (result.updated.stabilized) {
-      sound.playHeal();
-      setPlayer({ ...player, deathSaves: result.updated });
-      addChronicle('death_save', '🛡️ STABILIZED! Petualang berhasil menstabilkan diri.');
     } else {
       if (result.roll >= 10) sound.playHeal();
       else sound.playMiss();

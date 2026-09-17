@@ -276,6 +276,12 @@ export function rollDeathSave(currentSaves: DeathSaves): {
     updated.successes += 1;
     if (updated.successes >= 3) {
       updated.stabilized = true;
+      return {
+        updated,
+        roll: d,
+        message: '🎉 3 DEATH SAVE SUCCESSES! STABILIZED! Tekad bertahan hidup membangkitkanmu dengan 1 HP!',
+        revivedWithHp: 1,
+      };
     }
     return {
       updated,
