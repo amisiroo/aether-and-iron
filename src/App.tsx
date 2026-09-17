@@ -892,7 +892,7 @@ export function App() {
   };
 
   return (
-    <div className="w-full h-screen bg-[#08090c] text-white">
+    <div className="w-full h-screen bg-[#08090c] text-white overflow-x-hidden overflow-y-auto">
       {/* 1. CHARACTER CREATION SCREEN */}
       {phase === 'creation' && (
         <CharacterCreation
