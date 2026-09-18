@@ -49,6 +49,14 @@ export function resolveBossTurn(state: BossEncounterState, turn: number): BossTu
   }
   return { state: next };
 }
+export function resolveArenaDamage(state: BossEncounterState, position: { x: number; y: number }, bossPosition: { x: number; y: number }): { damage: number; source?: string } {
+  if (state.phase === 'defeated') return { damage: 0 };
+  const inPulse = state.telegraph && Math.max(Math.abs(position.x - bossPosition.x), Math.abs(position.y - bossPosition.y)) <= state.telegraph.area;
+  if (inPulse) return { damage: 8, source: state.telegraph?.name };
+  if (state.arenaHazards.length > 0 && (position.x + position.y) % 3 === 0) return { damage: 3, source: 'unstable arena hazard' };
+  return { damage: 0 };
+}
+
 export function markBossDefeated(state: BossEncounterState): BossEncounterState {
   if (state.phase === 'defeated') return state;
   return { ...state, hp: 0, phase: 'defeated', telegraph: undefined, victory: { ...state.victory, completed: true } };

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createIronWardenEncounter, applyBossDamage, resolveBossTurn, markBossDefeated, type BossEncounterState } from './boss';
+import { createIronWardenEncounter, applyBossDamage, resolveBossTurn, resolveArenaDamage, markBossDefeated, type BossEncounterState } from './boss';
 
 describe('Iron Warden encounter', () => {
   it('transitions once at each HP threshold', () => {
@@ -29,6 +29,11 @@ describe('Iron Warden encounter', () => {
     expect(second.resolvedAttack?.id).toBe('warden_cataclysm');
     expect(second.state.telegraph).toBeUndefined();
     expect(second.state.turn).toBe(2);
+  });
+  it('arena effects deal deterministic damage only inside the represented danger zones', () => {
+    const armed = resolveBossTurn(createIronWardenEncounter(), 1).state;
+    expect(resolveArenaDamage({ ...armed, telegraph: { id: 'warden_cataclysm', name: 'Pulse', area: 2, damageDice: '2d8' } }, { x: 3, y: 3 }, { x: 4, y: 3 }).damage).toBe(8);
+    expect(resolveArenaDamage(armed, { x: 1, y: 1 }, { x: 4, y: 3 }).damage).toBe(0);
   });
   it('defeat is terminal and victory reward is stable', () => {
     const defeated = markBossDefeated(applyBossDamage(createIronWardenEncounter(), 99).state);

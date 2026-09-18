@@ -27,6 +27,7 @@ interface GameHUDProps {
   onEndTurn: () => void;
   onRollDeathSave: () => void;
   onRestart: () => void;
+  onNewGamePlus?: () => void;
   onOpenHelp?: () => void;
   onScaleFont?: (delta: number) => void;
   quests?: QuestState[];
@@ -46,6 +47,7 @@ export const GameHUD: React.FC<GameHUDProps> = ({
   onEndTurn,
   onRollDeathSave,
   onRestart,
+  onNewGamePlus,
   onOpenHelp,
   onScaleFont,
   quests = [],
@@ -115,6 +117,7 @@ export const GameHUD: React.FC<GameHUDProps> = ({
           <button onClick={() => onScaleFont?.(-.05)} aria-label="Decrease text size" className="px-2 py-1 rounded border border-[#2b334a] text-xs">A−</button>
           <button onClick={() => onScaleFont?.(.05)} aria-label="Increase text size" className="px-2 py-1 rounded border border-[#2b334a] text-xs">A+</button>
 
+          {onNewGamePlus && <button onClick={onNewGamePlus} className="text-xs font-mono text-amber-300 border border-amber-500/40 px-3 py-1 rounded transition">NG+</button>}
           <button
             onClick={onRestart}
             className="text-xs font-mono text-gray-400 hover:text-gray-200 border border-[#23283a] hover:border-[#3b4463] px-3 py-1 rounded transition"

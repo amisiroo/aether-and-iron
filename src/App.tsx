@@ -41,11 +41,11 @@ import { claimEnemyLoot, claimInteractableLoot } from './core/loot';
 import { equipItem } from './data/items';
 import { applyLevelUp, pendingLevelUps, awardXp } from './core/progression';
 import { createQuestStates, createConsequenceFlags, progressObjective, resolvePuzzle, unlockRoom, claimQuestReward } from './core/quests';
-import { createIronWardenEncounter, applyBossDamage, resolveBossTurn, markBossDefeated } from './core/boss';
+import { createIronWardenEncounter, applyBossDamage, resolveBossTurn, resolveArenaDamage, markBossDefeated } from './core/boss';
 import { TutorialOverlay } from './components/TutorialOverlay';
 import { advanceTutorial, initialTutorialState, type TutorialState } from './core/tutorial';
 import { TUTORIAL_KEY } from './core/persistence';
-import { createRunState, type RunState } from './core/replayability';
+import { createRunState, startNewGamePlus, type ChallengeModifier, type RunState } from './core/replayability';
 
 interface FloatingText {
   id: string;
@@ -86,6 +86,8 @@ export function App() {
   const [fontScale, setFontScale] = useState(1);
   const [reducedMotion, setReducedMotion] = useState(false);
   const [runState, setRunState] = useState<RunState>(() => createRunState('chapter1-local'));
+  const [showNewGamePlus, setShowNewGamePlus] = useState(false);
+  const [selectedModifiers, setSelectedModifiers] = useState<ChallengeModifier[]>([]);
 
   // Check saved game on mount; malformed saves are ignored by the persistence module.
   useEffect(() => {
@@ -730,7 +732,19 @@ export function App() {
       const bossTurn = resolveBossTurn(bossEncounter, bossEncounter.turn + 1);
       setBossEncounter(bossTurn.state);
       if (bossTurn.telegraph) addChronicle('combat', `🔴 TELEGRAPH: ${bossTurn.telegraph.name} — keluar dari area ${bossTurn.telegraph.area} tile!`);
-      if (bossTurn.resolvedAttack) addChronicle('combat', `💥 ${bossTurn.resolvedAttack.name} meledak di arena!`);
+      if (bossTurn.resolvedAttack) {
+        addChronicle('hazard', `💥 ${bossTurn.resolvedAttack.name} meledak di arena!`);
+        const boss = currentRoom.enemies.find((enemy) => enemy.id === 'boss_iron_warden');
+        if (boss) {
+          const impact = resolveArenaDamage({ ...bossEncounter, telegraph: bossTurn.resolvedAttack }, currentPlayer, boss);
+          if (impact.damage > 0) {
+            currentPlayer.hp = Math.max(0, currentPlayer.hp - impact.damage);
+            triggerFloatingText(currentPlayer.x, currentPlayer.y, `-${impact.damage} ARENA DMG`, '#f97316');
+            addChronicle('hazard', `⚠️ ${impact.source}: ${impact.damage} damage.`);
+            if (currentPlayer.hp <= 0) currentPlayer.conditions = [...currentPlayer.conditions.filter((condition) => condition !== 'downed'), 'downed'];
+          }
+        }
+      }
     }
 
     // Update enemies in room
@@ -883,6 +897,7 @@ export function App() {
             onEndTurn={handleEndTurn}
             onRollDeathSave={handleRollDeathSave}
             onRestart={handleRestart}
+            onNewGamePlus={() => setShowNewGamePlus(true)}
             onOpenHelp={() => setShowTutorial(true)}
             onScaleFont={(delta) => setFontScale((value) => Math.max(.85, Math.min(1.4, value + delta)))}
             quests={quests}
@@ -921,6 +936,8 @@ export function App() {
       )}
 
       {showTutorial && <TutorialOverlay state={tutorial} onClose={() => setShowTutorial(false)} onNext={() => { const next = advanceTutorial(tutorial); setTutorial(next); if (next.completed) setShowTutorial(false); }} />}
+
+      {showNewGamePlus && <div className="fixed inset-0 z-[70] bg-black/80 flex items-center justify-center p-6"><div className="max-w-md w-full rounded-2xl border border-amber-500/50 bg-[#10131d] p-6"><h2 className="text-xl font-bold text-amber-300">NEW GAME+</h2><p className="text-sm text-gray-400 mt-1">Carry your achievements into a tougher Chapter 1 replay.</p><div className="grid gap-2 my-4">{(['iron_will', 'glass_dungeon', 'permadeath'] as ChallengeModifier[]).map((modifier) => <label key={modifier} className="flex items-center gap-2 rounded border border-[#2b334a] p-3 text-sm"><input type="checkbox" checked={selectedModifiers.includes(modifier)} onChange={() => setSelectedModifiers((current) => current.includes(modifier) ? current.filter((item) => item !== modifier) : [...current, modifier])} />{modifier.replace('_', ' ')}</label>)}</div><div className="flex justify-end gap-2"><button onClick={() => setShowNewGamePlus(false)} className="px-3 py-2 text-gray-400">Cancel</button><button onClick={() => { setRunState(startNewGamePlus(runState, selectedModifiers)); setShowNewGamePlus(false); handleRestart(); }} className="rounded bg-amber-500 px-4 py-2 font-bold text-black">Start NG+</button></div></div></div>}
 
       {levelUpChoice && player && (
         <div className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-6">
