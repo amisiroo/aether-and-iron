@@ -1,4 +1,5 @@
 import type { ChronicleEntry, Entity, Room } from '../types/game';
+import { normalizeItem } from '../data/items';
 
 export const SAVE_KEY = 'aether_and_iron_save_primary';
 export const LEGACY_SAVE_KEY = 'aether_and_iron_save_v1';
@@ -31,6 +32,8 @@ const isEntity = (value: unknown): value is Entity => {
     typeof value.hasUsedBonusAction === 'boolean';
 };
 
+const migrateEntityItems = (entity: Entity): Entity => ({ ...entity, ...(entity.inventory ? { inventory: entity.inventory.map(normalizeItem) } : {}), ...(entity.equipment ? { equipment: entity.equipment } : {}) });
+
 const isRoom = (value: unknown): value is Room => {
   if (!isRecord(value)) return false;
   return typeof value.id === 'string' && typeof value.name === 'string' &&
@@ -56,7 +59,7 @@ export function migrateSave(value: unknown): VersionedSave | null {
   const version = value.version;
   if (version !== undefined && version !== CURRENT_SAVE_VERSION) return null;
   if (!isSaveShape(value)) return null;
-  return { version: CURRENT_SAVE_VERSION, player: value.player, currentRoomId: value.currentRoomId, rooms: value.rooms, chronicle: value.chronicle.slice(0, 50) };
+  return { version: CURRENT_SAVE_VERSION, player: migrateEntityItems(value.player), currentRoomId: value.currentRoomId, rooms: value.rooms, chronicle: value.chronicle.slice(0, 50) };
 }
 
 export function serializeSave(save: SaveGame): string {

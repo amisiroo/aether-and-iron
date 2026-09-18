@@ -83,14 +83,23 @@ export interface Interactable {
   resolved: boolean;
 }
 
+export type ItemType = 'potion' | 'scroll' | 'weapon' | 'armor' | 'relic';
+export type EquipmentSlot = 'weapon' | 'armor' | 'relic';
+export type StatModifiers = Partial<Record<AbilityScore, number>> & { ac?: number; maxHp?: number; speed?: number };
+
 export interface GameItem {
   id: string;
   name: string;
   description: string;
-  type: 'potion' | 'scroll' | 'relic';
-  effect: 'heal' | 'buff_ac' | 'inspiration';
+  type: ItemType;
+  rarity?: 'common' | 'uncommon' | 'rare' | 'legendary';
+  effect?: 'heal' | 'buff_ac' | 'inspiration' | 'damage' | 'stat';
   value: number;
   count: number;
+  slot?: EquipmentSlot;
+  modifiers?: StatModifiers;
+  unique?: boolean;
+  lootSource?: string;
 }
 
 export interface Entity {
@@ -109,6 +118,7 @@ export interface Entity {
   conditions: Condition[];
   skills: Skill[];
   inventory?: GameItem[];
+  equipment?: Partial<Record<EquipmentSlot, GameItem>>;
   color: string;
   icon: string;
   deathSaves: DeathSaves;
