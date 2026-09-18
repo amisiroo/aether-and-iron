@@ -1,0 +1,20 @@
+import type { ChronicleEntry } from '../types/game';
+
+export type ChallengeModifier = 'iron_will' | 'glass_dungeon' | 'permadeath';
+export interface CombatEvent { id: string; encounterId: string; kind: 'damage' | 'heal' | 'miss' | 'death' | 'action'; actorId: string; targetId?: string; amount?: number; text: string; }
+export interface EncounterReplay { id: string; outcome: 'victory' | 'defeat' | 'fled'; eventIds: string[]; startedAt: string; endedAt: string; }
+export interface CombatStats { totalDamage: number; totalHealing: number; attacks: number; hits: number; criticalHits: number; defeats: number; turns: number; }
+export interface RunState { seed: string; newGamePlus: number; completedRuns: number; challengeModifiers: ChallengeModifier[]; permadeath: boolean; combatLog: CombatEvent[]; encounters: EncounterReplay[]; combatStats: CombatStats; achievements: string[]; resolvedEvents: string[]; carryover: { relicIds: string[]; achievementIds: string[] }; }
+
+export const createCombatStats = (): CombatStats => ({ totalDamage: 0, totalHealing: 0, attacks: 0, hits: 0, criticalHits: 0, defeats: 0, turns: 0 });
+export const createRunState = (seed: string): RunState => ({ seed, newGamePlus: 0, completedRuns: 0, challengeModifiers: [], permadeath: false, combatLog: [], encounters: [], combatStats: createCombatStats(), achievements: [], resolvedEvents: [], carryover: { relicIds: [], achievementIds: [] } });
+
+function hash(input: string): number { let h = 2166136261; for (let i = 0; i < input.length; i++) h = Math.imul(h ^ input.charCodeAt(i), 16777619); return h >>> 0; }
+export const rollSeeded = (seed: string, index: number): number => (hash(`${seed}:${index}`) % 1000000) / 1000000;
+export const applyChallenge = (base: { hp: number; damage: number; xp: number }, modifiers: ChallengeModifier[]) => ({ hp: Math.round(base.hp * (modifiers.includes('iron_will') ? 1.3 : 1)), damage: Math.round(base.damage * (modifiers.includes('glass_dungeon') ? 1.5 : 1)), xp: Math.round(base.xp * (modifiers.includes('iron_will') ? 1.5 : 1)) });
+export const startNewGamePlus = (run: RunState, modifiers: ChallengeModifier[]): RunState => ({ ...createRunState(run.seed), newGamePlus: run.newGamePlus + 1, challengeModifiers: modifiers, permadeath: modifiers.includes('permadeath'), carryover: { relicIds: [...run.carryover.relicIds], achievementIds: [...run.achievements, ...run.carryover.achievementIds].filter((v, i, a) => a.indexOf(v) === i) } });
+export function resolveRandomEvent(seed: string, roomIndex: number, roomId: string, player: { hp: number; maxHp: number }) { const eventId = `${roomId}:${roomIndex}`; const roll = rollSeeded(seed, roomIndex); return roll < .5 ? { eventId, kind: 'cache' as const, hp: player.hp, message: 'A hidden cache restores supplies.' } : { eventId, kind: 'ambush' as const, hp: Math.max(1, player.hp - 1), message: 'An ambush catches the party between rooms.' }; }
+export const achievement = (run: RunState, id: string): RunState => run.achievements.includes(id) ? run : { ...run, achievements: [...run.achievements, id] };
+export function logCombatEvent(run: RunState, event: CombatEvent): RunState { if (run.combatLog.some(e => e.id === event.id)) return run; const stats = { ...run.combatStats }; if (event.kind === 'damage') { stats.totalDamage += event.amount ?? 0; stats.attacks += 1; stats.hits += 1; } if (event.kind === 'heal') stats.totalHealing += event.amount ?? 0; if (event.kind === 'death') stats.defeats += 1; return { ...run, combatLog: [...run.combatLog, event], combatStats: stats }; }
+export const endEncounter = (run: RunState, id: string, outcome: EncounterReplay['outcome']): RunState => ({ ...run, encounters: [...run.encounters.filter(e => e.id !== id), { id, outcome, eventIds: run.combatLog.filter(e => e.encounterId === id).map(e => e.id), startedAt: new Date(0).toISOString(), endedAt: new Date(0).toISOString() }] });
+export const runChronicle = (run: RunState): ChronicleEntry[] => run.combatLog.map(e => ({ id: e.id, timestamp: e.id, type: 'combat', eventId: e.id, text: e.text }));

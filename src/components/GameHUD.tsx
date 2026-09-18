@@ -12,6 +12,7 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import { CharacterPortrait } from './CharacterPortrait';
+import type { CombatStats } from '../core/replayability';
 
 interface GameHUDProps {
   player: Entity;
@@ -29,6 +30,7 @@ interface GameHUDProps {
   onOpenHelp?: () => void;
   onScaleFont?: (delta: number) => void;
   quests?: QuestState[];
+  combatStats?: CombatStats;
 }
 
 export const GameHUD: React.FC<GameHUDProps> = ({
@@ -47,6 +49,7 @@ export const GameHUD: React.FC<GameHUDProps> = ({
   onOpenHelp,
   onScaleFont,
   quests = [],
+  combatStats,
 }) => {
   const isDowned = player.hp <= 0 || player.conditions.includes('downed');
   const hasInspiration = player.conditions.includes('inspired');
@@ -352,6 +355,9 @@ export const GameHUD: React.FC<GameHUDProps> = ({
               <span>WASD / Click</span>
             </div>
           </div>
+          {combatStats && <div className="px-3 py-2 border-b border-[#1c2132] bg-amber-950/10 text-[10px] font-mono text-amber-200" aria-label="Run combat summary">
+            RUN SUMMARY · {combatStats.totalDamage} damage · {combatStats.totalHealing} healing · {combatStats.defeats} defeated · {combatStats.turns} turns
+          </div>}
 
           {/* Chronicle List */}
           <div className="flex-1 p-3 overflow-y-auto space-y-2.5 font-mono text-xs">

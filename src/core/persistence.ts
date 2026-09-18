@@ -1,9 +1,11 @@
 import type { ChronicleEntry, Entity, Room, QuestState, ConsequenceFlags, BossEncounterState } from '../types/game';
 import { normalizeItem } from '../data/items';
+import type { RunState } from './replayability';
+import { createRunState } from './replayability';
 
 export const SAVE_KEY = 'aether_and_iron_save_primary';
 export const LEGACY_SAVE_KEY = 'aether_and_iron_save_v1';
-export const CURRENT_SAVE_VERSION = 3;
+export const CURRENT_SAVE_VERSION = 4;
 export const TUTORIAL_KEY = 'aether_and_iron_tutorial_v1';
 
 export interface SaveGame {
@@ -16,6 +18,7 @@ export interface SaveGame {
   consequenceFlags?: ConsequenceFlags;
   bossEncounter?: BossEncounterState;
   tutorial?: { completed: boolean; step: number };
+  run?: RunState;
 }
 
 export interface VersionedSave extends SaveGame {
@@ -71,7 +74,8 @@ export function migrateSave(value: unknown): VersionedSave | null {
   const version = value.version;
   if (version !== undefined && version !== CURRENT_SAVE_VERSION) return null;
   if (!isSaveShape(value)) return null;
-  return { version: CURRENT_SAVE_VERSION, player: migrateEntityProgression(value.player), currentRoomId: value.currentRoomId, rooms: value.rooms, chronicle: value.chronicle.slice(0, 50), quests: Array.isArray(value.quests) ? value.quests as QuestState[] : [], consequenceFlags: isRecord(value.consequenceFlags) ? value.consequenceFlags as ConsequenceFlags : {}, tutorial: isRecord(value.tutorial) && typeof value.tutorial.completed === 'boolean' && typeof value.tutorial.step === 'number' ? value.tutorial as { completed: boolean; step: number } : undefined };
+  const seed = isRecord(value.run) && typeof value.run.seed === 'string' ? value.run.seed : 'legacy';
+  return { version: CURRENT_SAVE_VERSION, player: migrateEntityProgression(value.player), currentRoomId: value.currentRoomId, rooms: value.rooms, chronicle: value.chronicle.slice(0, 50), quests: Array.isArray(value.quests) ? value.quests as QuestState[] : [], consequenceFlags: isRecord(value.consequenceFlags) ? value.consequenceFlags as ConsequenceFlags : {}, tutorial: isRecord(value.tutorial) && typeof value.tutorial.completed === 'boolean' && typeof value.tutorial.step === 'number' ? value.tutorial as { completed: boolean; step: number } : undefined, run: isRecord(value.run) ? value.run as RunState : createRunState(seed) };
 }
 
 export function serializeSave(save: SaveGame): string {

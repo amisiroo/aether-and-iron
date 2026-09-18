@@ -45,6 +45,7 @@ import { createIronWardenEncounter, applyBossDamage, resolveBossTurn, markBossDe
 import { TutorialOverlay } from './components/TutorialOverlay';
 import { advanceTutorial, initialTutorialState, type TutorialState } from './core/tutorial';
 import { TUTORIAL_KEY } from './core/persistence';
+import { createRunState, type RunState } from './core/replayability';
 
 interface FloatingText {
   id: string;
@@ -84,6 +85,7 @@ export function App() {
   const [showTutorial, setShowTutorial] = useState(false);
   const [fontScale, setFontScale] = useState(1);
   const [reducedMotion, setReducedMotion] = useState(false);
+  const [runState, setRunState] = useState<RunState>(() => createRunState('chapter1-local'));
 
   // Check saved game on mount; malformed saves are ignored by the persistence module.
   useEffect(() => {
@@ -112,11 +114,11 @@ export function App() {
   // Helper to save state
   const saveState = useCallback(
     (hero: Entity, rId: string, rms: Record<string, Room>, ch: ChronicleEntry[]) => {
-      if (writeSave({ player: hero, currentRoomId: rId, rooms: rms, chronicle: ch.slice(0, 30), quests, consequenceFlags, bossEncounter })) {
+      if (writeSave({ player: hero, currentRoomId: rId, rooms: rms, chronicle: ch.slice(0, 30), quests, consequenceFlags, bossEncounter, run: runState })) {
         setHasSaveGame(true);
       }
     },
-    [quests, consequenceFlags, bossEncounter]
+    [quests, consequenceFlags, bossEncounter, runState]
   );
 
   // Meaningful state changes converge into one debounced primary autosave.
@@ -138,6 +140,7 @@ export function App() {
       setQuests(saved.quests?.length ? saved.quests : createQuestStates());
       setConsequenceFlags(saved.consequenceFlags ?? {});
       setBossEncounter(saved.bossEncounter ?? createIronWardenEncounter());
+      setRunState(saved.run ?? createRunState('legacy'));
       setPhase('exploration');
       sound.playHeal();
       addChronicle('narrative', '📂 Checkpoint petualangan berhasil dimuat dari arsip Guild.');
@@ -883,6 +886,7 @@ export function App() {
             onOpenHelp={() => setShowTutorial(true)}
             onScaleFont={(delta) => setFontScale((value) => Math.max(.85, Math.min(1.4, value + delta)))}
             quests={quests}
+            combatStats={runState.combatStats}
           />
 
           {/* Canvas Mount into DOM */}
