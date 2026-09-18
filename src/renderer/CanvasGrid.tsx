@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { Entity, Room, Skill, TileType } from '../types/game';
 import { Point } from '../core/map';
+import { classifyTileInteraction, interactableHint } from '../core/interaction';
 
 interface FloatingText {
   id: string;
@@ -429,6 +430,30 @@ export const CanvasGrid: React.FC<CanvasGridProps> = ({
       ctx.restore();
     });
 
+    // Interactable tokens use a diamond silhouette and a bright interaction ring.
+    room.interactables.forEach((item) => {
+      if (item.resolved) return;
+      const ix = item.x * TILE_SIZE + TILE_SIZE / 2;
+      const iy = item.y * TILE_SIZE + TILE_SIZE / 2;
+      const isHovered = hoveredTile?.x === item.x && hoveredTile?.y === item.y;
+      ctx.save();
+      ctx.shadowColor = isHovered ? '#fde68a' : '#f59e0b';
+      ctx.shadowBlur = isHovered ? 14 : 6;
+      ctx.fillStyle = '#7c2d12';
+      ctx.strokeStyle = isHovered ? '#fef3c7' : '#fbbf24';
+      ctx.lineWidth = isHovered ? 3 : 2;
+      ctx.beginPath();
+      ctx.moveTo(ix, iy - 17); ctx.lineTo(ix + 14, iy); ctx.lineTo(ix, iy + 17); ctx.lineTo(ix - 14, iy); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#fde68a';
+      ctx.beginPath(); ctx.arc(ix, iy, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#451a03';
+      ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(item.check ? '?' : '!', ix, iy);
+      ctx.restore();
+    });
+
     // 6. RENDER HERO TOKEN WITH GILDED CREST & CLASS MOTIF
     const px = player.x * TILE_SIZE + TILE_SIZE / 2;
     const py = player.y * TILE_SIZE + TILE_SIZE / 2;
@@ -550,15 +575,18 @@ export const CanvasGrid: React.FC<CanvasGridProps> = ({
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
     ctx.restore();
 
-    if (hoveredTile && (movementCost !== undefined || movementInvalidReason)) {
+    const hoveredInteractable = hoveredTile ? room.interactables.find((item) => item.x === hoveredTile.x && item.y === hoveredTile.y && !item.resolved) : undefined;
+    if (hoveredTile && hoveredInteractable) {
+      ctx.save();
+      ctx.font = 'bold 12px monospace';
+      ctx.fillStyle = '#fde68a';
+      ctx.fillText(interactableHint(hoveredInteractable), hoveredTile.x * TILE_SIZE + 4, hoveredTile.y * TILE_SIZE + 14);
+      ctx.restore();
+    } else if (hoveredTile && (movementCost !== undefined || movementInvalidReason)) {
       ctx.save();
       ctx.font = 'bold 12px monospace';
       ctx.fillStyle = movementInvalidReason ? '#f87171' : '#7dd3fc';
-      ctx.fillText(
-        movementInvalidReason ? movementInvalidReason : `Move cost: ${movementCost}`,
-        hoveredTile.x * TILE_SIZE + 4,
-        hoveredTile.y * TILE_SIZE + 14
-      );
+      ctx.fillText(movementInvalidReason ? movementInvalidReason : `Move cost: ${movementCost}`, hoveredTile.x * TILE_SIZE + 4, hoveredTile.y * TILE_SIZE + 14);
       ctx.restore();
     }
 
@@ -630,23 +658,9 @@ export const CanvasGrid: React.FC<CanvasGridProps> = ({
     const tx = Math.floor((clientX * scaleX) / TILE_SIZE);
     const ty = Math.floor((clientY * scaleY) / TILE_SIZE);
 
-    // 1. Check if clicked an enemy
-    const clickedEnemy = enemies.find((en) => en.x === tx && en.y === ty && en.hp > 0);
-    if (clickedEnemy) {
-      onEnemyClick(clickedEnemy);
-      return;
-    }
-
-    // 2. Check if clicked an interactable
-    const clickedInteractable = room.interactables.find(
-      (item) => item.x === tx && item.y === ty && !item.resolved
-    );
-    if (clickedInteractable) {
-      onInteractableClick(clickedInteractable.id);
-      return;
-    }
-
-    // 3. Otherwise general tile click (movement or exit)
+    const target = classifyTileInteraction(tx, ty, enemies, room.interactables);
+    if (target.kind === 'enemy') return onEnemyClick(target.entity);
+    if (target.kind === 'interactable') return onInteractableClick(target.interactable.id);
     onTileClick(tx, ty);
   };
 
@@ -661,7 +675,7 @@ export const CanvasGrid: React.FC<CanvasGridProps> = ({
         onClick={handleClick}
         tabIndex={0}
         role="application"
-        aria-label={`Tactical map: ${room.name}. Tap or click a tile to move; select an enemy to attack.`}
+        aria-label={`Tactical map: ${room.name}. Tap or click a tile to move, an enemy to attack, or a glowing diamond to interact.`}
         onKeyDown={(event) => { const moves: Record<string, Point> = { ArrowUp: { x: 0, y: -1 }, w: { x: 0, y: -1 }, ArrowDown: { x: 0, y: 1 }, s: { x: 0, y: 1 }, ArrowLeft: { x: -1, y: 0 }, a: { x: -1, y: 0 }, ArrowRight: { x: 1, y: 0 }, d: { x: 1, y: 0 } }; const move = moves[event.key]; if (move) { event.preventDefault(); onTileClick(player.x + move.x, player.y + move.y); } }}
         className="rounded-xl border border-[#23293d] shadow-2xl bg-[#080a10] cursor-crosshair max-w-full max-h-full object-contain"
       />

@@ -46,6 +46,7 @@ import { TutorialOverlay } from './components/TutorialOverlay';
 import { advanceTutorial, initialTutorialState, type TutorialState } from './core/tutorial';
 import { TUTORIAL_KEY } from './core/persistence';
 import { createRunState, startNewGamePlus, type ChallengeModifier, type RunState } from './core/replayability';
+import { classifyTileInteraction } from './core/interaction';
 
 interface FloatingText {
   id: string;
@@ -870,6 +871,17 @@ export function App() {
     }
   }, [quests, player]);
 
+  const onTileHover = (x: number, y: number) => {
+    if (!player) return;
+    const target = classifyTileInteraction(x, y, currentRoom.enemies, currentRoom.interactables);
+    if (target.kind === 'interactable' || target.kind === 'enemy') {
+      setMovementPreview(null);
+      return;
+    }
+    const occupied = currentRoom.enemies.filter((e) => e.hp > 0).map(({ x: ex, y: ey }) => ({ x: ex, y: ey }));
+    setMovementPreview(findPath(currentRoom.layout, { x: player.x, y: player.y }, { x, y }, occupied));
+  };
+
   return (
     <div className="w-full h-screen bg-[#08090c] text-white overflow-x-hidden overflow-y-auto">
       {/* 1. CHARACTER CREATION SCREEN */}
@@ -913,7 +925,7 @@ export function App() {
 
       {/* Render Canvas within the #canvas-container */}
       {player && (phase === 'exploration' || phase === 'combat') && (
-        <div className="fixed top-14 left-0 right-0 lg:right-96 bottom-20 flex items-center justify-center pointer-events-auto z-10">
+        <div className="fixed top-14 left-0 right-0 lg:right-96 bottom-20 flex items-center justify-center pointer-events-auto z-10 overflow-auto">
           <CanvasGrid
             room={currentRoom}
             player={player}
@@ -921,11 +933,7 @@ export function App() {
             selectedSkill={selectedSkill}
             floatingTexts={floatingTexts}
             onTileClick={handleTileClick}
-            onTileHover={(x, y) => {
-              if (!player) return;
-              const occupied = currentRoom.enemies.filter((e) => e.hp > 0).map(({ x: ex, y: ey }) => ({ x: ex, y: ey }));
-              setMovementPreview(findPath(currentRoom.layout, { x: player.x, y: player.y }, { x, y }, occupied));
-            }}
+            onTileHover={onTileHover}
             movementPath={movementPreview?.path}
             movementCost={movementPreview?.cost}
             movementInvalidReason={movementPreview?.reason}

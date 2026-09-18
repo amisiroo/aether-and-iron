@@ -3,18 +3,9 @@
 @tailwind utilities;
 
 @layer base {
-  body {
-    font-family: 'Inter', system-ui, sans-serif;
-  }
-
-  h1, h2, h3, .font-cinzel {
-    font-family: 'Cinzel', serif;
-  }
-
-  code, pre, .font-mono {
-    font-family: 'JetBrains Mono', monospace;
-  }
-
+  body { font-family: 'Inter', system-ui, sans-serif; }
+  h1, h2, h3, .font-cinzel { font-family: 'Cinzel', serif; }
+  code, pre, .font-mono { font-family: 'JetBrains Mono', monospace; }
   :focus-visible { outline: 3px solid #fbbf24; outline-offset: 3px; }
   button, [role="button"] { touch-action: manipulation; }
 }
@@ -24,21 +15,21 @@ html { font-size: var(--ui-font-scale, 1em); }
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
 }
 @media (max-width: 640px) {
-  #canvas-container canvas { max-width: calc(100vw - 16px); max-height: 42vh; }
+  #canvas-container canvas { max-width: calc(100vw - 16px); max-height: min(42vh, 440px); }
 }
 
-/* Custom scrollbars for narrative chronicle */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+.game-hud button { min-height: 2.25rem; }
+@media (orientation: landscape) and (max-height: 600px) {
+  .game-hud header { min-height: 3rem; padding-block: .35rem; }
+  .game-hud #canvas-container { min-height: 12rem; }
+  .game-hud aside { max-height: 12rem; }
 }
-::-webkit-scrollbar-track {
-  background: #0d0f15;
+@media (orientation: portrait) and (max-width: 640px) {
+  .game-hud { overflow-y: auto; }
+  .game-hud #canvas-container { min-height: 14rem; }
 }
-::-webkit-scrollbar-thumb {
-  background: #2a2f42;
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #3f4764;
-}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #0d0f15; }
+::-webkit-scrollbar-thumb { background: #2a2f42; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #3f4764; }

@@ -64,9 +64,9 @@ export const GameHUD: React.FC<GameHUDProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-screen w-full bg-[#08090c] text-gray-200 select-none overflow-hidden">
+    <div className="game-hud flex flex-col min-h-screen h-[100dvh] w-full bg-[#08090c] text-gray-200 select-none overflow-hidden">
       {/* 1. TOP STATUS BAR */}
-      <header className="h-14 border-b border-[#1f2436] bg-[#0c0e15] px-4 md:px-6 flex items-center justify-between shrink-0 z-20">
+      <header className="min-h-14 border-b border-[#1f2436] bg-[#0c0e15] px-3 md:px-6 py-2 flex flex-wrap items-center justify-between shrink-0 z-20 gap-2">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-lg bg-amber-950/40 border border-amber-500/30 text-amber-400">
             <Compass className="w-4 h-4" />
@@ -91,7 +91,7 @@ export const GameHUD: React.FC<GameHUDProps> = ({
         </div>
 
         {/* Status Indicators (Inspiration & Restrained) */}
-        <div className="flex items-center gap-2 md:gap-4">
+        <div className="flex items-center gap-2 md:gap-4 flex-wrap justify-end">
           {hasInspiration && (
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-950/60 border border-amber-500/50 text-amber-300 text-xs font-mono font-bold animate-bounce">
               <Sparkles className="w-3.5 h-3.5 text-amber-400" />
@@ -133,9 +133,9 @@ export const GameHUD: React.FC<GameHUDProps> = ({
       </div>
 
       {/* 2. MAIN WORKSPACE (CANVAS IN CENTER/LEFT, CHRONICLE IN RIGHT) */}
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden relative">
         {/* CENTER: Canvas and On-Screen Action Bar */}
-        <div className="flex-1 flex flex-col relative bg-[#090a10]">
+        <div className="flex-1 min-h-0 flex flex-col relative bg-[#090a10]">
           {/* Canvas will be injected into this container */}
           <div id="canvas-container" className="flex-1 relative flex items-center justify-center overflow-hidden p-2">
             {/* Downed Overlay if HP <= 0 */}
@@ -203,7 +203,7 @@ export const GameHUD: React.FC<GameHUDProps> = ({
           </div>
 
           {/* BOTTOM COMBAT ACTION BAR */}
-          <div className="h-20 bg-[#0d0f17] border-t border-[#1f2436] px-4 py-2 flex items-center justify-between shrink-0 z-10 gap-3">
+          <div className="min-h-20 bg-[#0d0f17] border-t border-[#1f2436] px-3 py-2 flex flex-wrap items-center justify-between shrink-0 z-10 gap-3">
             {/* Player Quick Stats */}
             <div className="flex items-center gap-3 shrink-0">
               <CharacterPortrait
@@ -323,7 +323,7 @@ export const GameHUD: React.FC<GameHUDProps> = ({
         </div>
 
           {/* INVENTORY / EQUIPMENT */}
-          <div className="border-t border-[#1f2436] bg-[#0b0d14] p-3 shrink-0">
+          <div className="border-t border-[#1f2436] bg-[#0b0d14] p-3 shrink-0 max-h-44 overflow-y-auto">
             <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-amber-400 mb-2">Inventory & Equipment</h3>
             <div className="grid grid-cols-3 gap-2 mb-2">
               {slots.map((slot) => {
@@ -344,7 +344,7 @@ export const GameHUD: React.FC<GameHUDProps> = ({
           </div>
 
         {/* RIGHT PANEL: CHRONICLE & LORE LOG (col-span-4) */}
-        <aside className="w-full lg:w-96 border-t lg:border-t-0 lg:border-l border-[#1f2436] bg-[#0a0c13] flex flex-col h-64 lg:h-full shrink-0">
+        <aside className="w-full lg:w-96 border-t lg:border-t-0 lg:border-l border-[#1f2436] bg-[#0a0c13] flex flex-col min-h-0 h-64 lg:h-full shrink-0">
           {/* Chronicle Header */}
           <div className="p-3 border-b border-[#1c2132] bg-[#0e1018] flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
@@ -363,7 +363,7 @@ export const GameHUD: React.FC<GameHUDProps> = ({
           </div>}
 
           {/* Chronicle List */}
-          <div className="flex-1 p-3 overflow-y-auto space-y-2.5 font-mono text-xs">
+          <div className="flex-1 min-h-0 p-3 overflow-y-auto space-y-2.5 font-mono text-xs">
             {chronicle.map((entry) => (
               <div
                 key={entry.id}
