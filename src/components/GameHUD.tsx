@@ -1,5 +1,5 @@
 import React from 'react';
-import { Entity, GamePhase, Room, Skill, ChronicleEntry, GameItem, EquipmentSlot } from '../types/game';
+import { Entity, GamePhase, Room, Skill, ChronicleEntry, GameItem, EquipmentSlot, QuestState } from '../types/game';
 import {
   Shield,
   Heart,
@@ -26,6 +26,7 @@ interface GameHUDProps {
   onEndTurn: () => void;
   onRollDeathSave: () => void;
   onRestart: () => void;
+  quests?: QuestState[];
 }
 
 export const GameHUD: React.FC<GameHUDProps> = ({
@@ -41,6 +42,7 @@ export const GameHUD: React.FC<GameHUDProps> = ({
   onEndTurn,
   onRollDeathSave,
   onRestart,
+  quests = [],
 }) => {
   const isDowned = player.hp <= 0 || player.conditions.includes('downed');
   const hasInspiration = player.conditions.includes('inspired');
@@ -110,6 +112,9 @@ export const GameHUD: React.FC<GameHUDProps> = ({
           </button>
         </div>
       </header>
+      <div className="hidden xl:block absolute top-14 left-0 right-96 z-20 px-4 py-1 bg-amber-950/40 text-[10px] font-mono text-amber-200 truncate">
+        {quests.filter(q => q.status === 'active').flatMap(q => q.objectives.filter(o => o.status === 'active').map(o => `${o.id} ${o.progress}/${o.target}`)).join(' · ')}
+      </div>
 
       {/* 2. MAIN WORKSPACE (CANVAS IN CENTER/LEFT, CHRONICLE IN RIGHT) */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">

@@ -8,6 +8,8 @@ import {
   ChronicleEntry,
   GameItem,
   RollMode,
+  QuestState,
+  ConsequenceFlags,
 } from './types/game';
 import { CHAPTER_1_ROOMS } from './data/rooms';
 import {
@@ -37,6 +39,7 @@ import {
 import { claimEnemyLoot, claimInteractableLoot } from './core/loot';
 import { equipItem } from './data/items';
 import { applyLevelUp, pendingLevelUps, awardXp } from './core/progression';
+import { createQuestStates, createConsequenceFlags, progressObjective, resolvePuzzle, unlockRoom, claimQuestReward } from './core/quests';
 
 interface FloatingText {
   id: string;
@@ -68,6 +71,9 @@ export function App() {
   const [hasSaveGame, setHasSaveGame] = useState<boolean>(false);
   const [isMinimapOpen, setIsMinimapOpen] = useState<boolean>(false);
   const [levelUpChoice, setLevelUpChoice] = useState<'power' | 'vitality' | 'skill' | null>(null);
+  const [quests, setQuests] = useState<QuestState[]>(createQuestStates);
+  const [consequenceFlags, setConsequenceFlags] = useState<ConsequenceFlags>(createConsequenceFlags);
+  const [choice, setChoice] = useState<{ title: string; prompt: string; options: Array<{ label: string; flag: string }> } | null>(null);
 
   // Check saved game on mount; malformed saves are ignored by the persistence module.
   useEffect(() => {
@@ -91,11 +97,11 @@ export function App() {
   // Helper to save state
   const saveState = useCallback(
     (hero: Entity, rId: string, rms: Record<string, Room>, ch: ChronicleEntry[]) => {
-      if (writeSave({ player: hero, currentRoomId: rId, rooms: rms, chronicle: ch.slice(0, 30) })) {
+      if (writeSave({ player: hero, currentRoomId: rId, rooms: rms, chronicle: ch.slice(0, 30), quests, consequenceFlags })) {
         setHasSaveGame(true);
       }
     },
-    []
+    [quests, consequenceFlags]
   );
 
   // Meaningful state changes converge into one debounced primary autosave.
@@ -114,6 +120,8 @@ export function App() {
       setCurrentRoomId(saved.currentRoomId);
       setRooms(saved.rooms);
       setChronicle(saved.chronicle);
+      setQuests(saved.quests?.length ? saved.quests : createQuestStates());
+      setConsequenceFlags(saved.consequenceFlags ?? {});
       setPhase('exploration');
       sound.playHeal();
       addChronicle('narrative', '📂 Checkpoint petualangan berhasil dimuat dari arsip Guild.');
@@ -133,6 +141,10 @@ export function App() {
       },
       ...prev.slice(0, 50), // Keep last 50 entries
     ]);
+  }, []);
+
+  const advanceQuest = useCallback((objectiveId: string, amount = 1) => {
+    setQuests(prev => progressObjective(prev, 'reliquary_expedition', objectiveId, amount));
   }, []);
 
   // Helper to spawn floating text on canvas
@@ -267,6 +279,7 @@ export function App() {
   const transitionToRoom = (targetRoomId: string, updatedPlayer: Entity) => {
     const nextRoom = rooms[targetRoomId];
     if (!nextRoom) return;
+    if (!unlockRoom(nextRoom, consequenceFlags)) { addChronicle('choice', 'Pintu itu menolakmu: konsekuensi pilihanmu mengunci jalur ini.'); return; }
 
     setCurrentRoomId(targetRoomId);
     setRooms((prev) => ({
@@ -282,7 +295,9 @@ export function App() {
       hasUsedAction: false,
       hasUsedBonusAction: false,
     });
-
+    const roomXp = awardXp(updatedPlayer, { id: `room:${targetRoomId}`, amount: 25, source: 'room', label: nextRoom.name });
+    setPlayer(p => p ? roomXp.player : p);
+    advanceQuest(targetRoomId === 'room_scriptorium' ? 'enter_scriptorium' : 'secure_relic');
     addChronicle(
       'narrative',
       `Melangkah melewati pintu gerbang... Memasuki ${nextRoom.name}. ${nextRoom.lore}`
@@ -325,6 +340,11 @@ export function App() {
           newHp = player.maxHp;
           triggerFloatingText(item.x, item.y, 'MAX HEAL!', '#10b981');
         }
+        if (item.id === 'grimoire_pedestal') {
+          const puzzle = resolvePuzzle(consequenceFlags, 'scriptorium_runes', true, 'runes_deciphered', 'runes_backlash');
+          setConsequenceFlags(puzzle.flags); advanceQuest('solve_runes');
+          setChoice({ title: 'The Grimoire’s Last Lesson', prompt: 'Choose how to approach the Warden.', options: [{ label: 'Expose the Warden’s weakness', flag: 'warden_exposed' }, { label: 'Bind the relic chamber', flag: 'relic_warded' }] });
+        }
         setPlayer((p) => (p ? { ...p, hp: newHp, conditions: updatedConditions } : null));
       } else {
         sound.playMiss();
@@ -337,6 +357,7 @@ export function App() {
           if (newHp <= 0) sound.playDefeat();
         }
         setPlayer((p) => (p ? { ...p, hp: newHp, conditions: updatedConditions } : null));
+        if (item.id === 'grimoire_pedestal') { const puzzle = resolvePuzzle(consequenceFlags, 'scriptorium_runes', false, 'runes_deciphered', 'runes_backlash'); setConsequenceFlags(puzzle.flags); advanceQuest('solve_runes'); }
       }
     } else {
       // Direct success without check (e.g. Relic pedestal)
@@ -782,7 +803,19 @@ export function App() {
     setPhase('creation');
     setSelectedSkill(null);
     setActiveRoll(null);
+    setQuests(createQuestStates()); setConsequenceFlags({}); setChoice(null);
   };
+
+  const chooseConsequence = (flag: string) => { setConsequenceFlags(prev => ({ ...prev, [flag]: true })); setChoice(null); addChronicle('choice', `Pilihanmu menetapkan konsekuensi: ${flag}.`); };
+
+  useEffect(() => {
+    if (!player) return;
+    const quest = quests.find(q => q.id === 'reliquary_expedition');
+    if (quest?.status === 'completed' && !quest.rewardClaimed) {
+      const reward = claimQuestReward(player, quests, quest.id, 100);
+      if (reward.awarded) { setPlayer(reward.player); setQuests(reward.quests); addChronicle('quest', `Quest complete: +${reward.awarded} XP.`); }
+    }
+  }, [quests, player]);
 
   return (
     <div className="w-full h-screen bg-[#08090c] text-white overflow-x-hidden overflow-y-auto">
@@ -811,6 +844,7 @@ export function App() {
             onEndTurn={handleEndTurn}
             onRollDeathSave={handleRollDeathSave}
             onRestart={handleRestart}
+            quests={quests}
           />
 
           {/* Canvas Mount into DOM */}
@@ -861,6 +895,15 @@ export function App() {
       {/* 3. DICE RESOLUTION MODAL */}
       {activeRoll && (
         <DiceModal roll={activeRoll} onClose={() => setActiveRoll(null)} />
+      )}
+
+      {choice && (
+        <div className="fixed inset-0 z-[55] bg-black/75 flex items-center justify-center p-6">
+          <div className="max-w-md w-full rounded-2xl border border-purple-500/50 bg-[#10131d] p-6 shadow-2xl">
+            <h2 className="text-xl font-bold text-purple-200 mb-2">{choice.title}</h2><p className="text-sm text-gray-300 mb-4">{choice.prompt}</p>
+            <div className="grid gap-2">{choice.options.map(option => <button key={option.flag} onClick={() => chooseConsequence(option.flag)} className="p-3 rounded-lg bg-purple-950/50 border border-purple-500/40 text-left hover:bg-purple-900/60">{option.label}</button>)}</div>
+          </div>
+        </div>
       )}
 
       {/* MINIMAP MODAL */}

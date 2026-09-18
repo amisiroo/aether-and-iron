@@ -1,9 +1,9 @@
-import type { ChronicleEntry, Entity, Room } from '../types/game';
+import type { ChronicleEntry, Entity, Room, QuestState, ConsequenceFlags } from '../types/game';
 import { normalizeItem } from '../data/items';
 
 export const SAVE_KEY = 'aether_and_iron_save_primary';
 export const LEGACY_SAVE_KEY = 'aether_and_iron_save_v1';
-export const CURRENT_SAVE_VERSION = 2;
+export const CURRENT_SAVE_VERSION = 3;
 
 export interface SaveGame {
   version?: number;
@@ -11,6 +11,8 @@ export interface SaveGame {
   currentRoomId: string;
   rooms: Record<string, Room>;
   chronicle: ChronicleEntry[];
+  quests?: QuestState[];
+  consequenceFlags?: ConsequenceFlags;
 }
 
 export interface VersionedSave extends SaveGame {
@@ -66,7 +68,7 @@ export function migrateSave(value: unknown): VersionedSave | null {
   const version = value.version;
   if (version !== undefined && version !== CURRENT_SAVE_VERSION) return null;
   if (!isSaveShape(value)) return null;
-  return { version: CURRENT_SAVE_VERSION, player: migrateEntityProgression(value.player), currentRoomId: value.currentRoomId, rooms: value.rooms, chronicle: value.chronicle.slice(0, 50) };
+  return { version: CURRENT_SAVE_VERSION, player: migrateEntityProgression(value.player), currentRoomId: value.currentRoomId, rooms: value.rooms, chronicle: value.chronicle.slice(0, 50), quests: Array.isArray(value.quests) ? value.quests as QuestState[] : [], consequenceFlags: isRecord(value.consequenceFlags) ? value.consequenceFlags as ConsequenceFlags : {} };
 }
 
 export function serializeSave(save: SaveGame): string {

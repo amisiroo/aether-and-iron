@@ -156,12 +156,19 @@ export interface Room {
     east?: string;
     west?: string;
   };
+  unlockRequirement?: string[];
 }
+
+export type QuestStatus = 'active' | 'completed' | 'failed';
+export interface ObjectiveState { id: string; progress: number; target: number; status: 'active' | 'completed'; }
+export interface QuestState { id: string; status: QuestStatus; objectives: ObjectiveState[]; rewardClaimed: boolean; }
+export type ConsequenceFlags = Record<string, boolean>;
 
 export interface ChronicleEntry {
   id: string;
   timestamp: string;
-  type: 'narrative' | 'combat' | 'check' | 'hazard' | 'death_save';
+  type: 'narrative' | 'combat' | 'check' | 'hazard' | 'death_save' | 'quest' | 'choice';
+  eventId?: string;
   text: string;
 }
 
