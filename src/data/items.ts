@@ -33,7 +33,7 @@ const applyStats = (player: Entity, equipment: Partial<Record<EquipmentSlot, Gam
 };
 
 export function addItem(player: Entity, item: GameItem, sourceId?: string): Entity {
-  if (sourceId && player.inventory?.some((entry) => entry.lootSource === sourceId)) return player;
+  if (sourceId && (player.claimedLoot?.includes(sourceId) || player.inventory?.some((entry) => entry.lootSource === sourceId))) return player;
   if (item.unique && (player.inventory?.some((entry) => entry.id === item.id) || player.equipment?.relic?.id === item.id)) return player;
   const inventory = [...(player.inventory || [])];
   const existing = inventory.find((entry) => entry.id === item.id && !item.unique);
@@ -59,12 +59,18 @@ export function equipItem(player: Entity, itemId: string): { player: Entity; equ
   const item = player.inventory?.find((entry) => entry.id === itemId) || Object.values(player.equipment || {}).find((entry) => entry?.id === itemId);
   if (!item?.slot || !item.modifiers) return { player, equipped: false };
   const old = player.equipment?.[item.slot];
-  if (old?.id === item.id) return { player: applyStats(player, {}), equipped: false };
+  if (old?.id === item.id) {
+    const equipment = { ...(player.equipment || {}) };
+    delete equipment[item.slot];
+    return { player: applyStats({ ...player, inventory: [...(player.inventory || []), old] }, equipment), equipped: false };
+  }
   const equipment = { ...(player.equipment || {}), [item.slot]: item };
   return { player: applyStats({ ...player, inventory: old && old.id !== item.id ? [...(player.inventory || []), old] : player.inventory?.filter((entry) => entry.id !== item.id) }, equipment), equipped: !old || old.id !== item.id };
 }
 
 export const LOOT_TABLES = { chest: ['guildPotion', 'ironMail'], enemy: ['guildFlare', 'emberBlade'], reward: ['obsidianHeart'] } as const;
 export function resolveLoot(player: Entity, table: keyof typeof LOOT_TABLES, sourceId: string): Entity {
-  return LOOT_TABLES[table].reduce((current, id) => addItem(current, ITEMS[id], sourceId), player);
+  if (player.claimedLoot?.includes(sourceId)) return player;
+  const next = LOOT_TABLES[table].reduce((current, id) => addItem(current, ITEMS[id]), player);
+  return { ...next, claimedLoot: [...(next.claimedLoot || []), sourceId] };
 }

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Entity, GamePhase, Room, Skill, ChronicleEntry, GameItem } from '../types/game';
+import { Entity, GamePhase, Room, Skill, ChronicleEntry, GameItem, EquipmentSlot } from '../types/game';
 import {
   Shield,
   Heart,
@@ -22,6 +22,7 @@ interface GameHUDProps {
   onSelectSkill: (skill: Skill | null) => void;
   onOpenMinimap: () => void;
   onUseItem: (item: GameItem) => void;
+  onEquipItem: (item: GameItem) => void;
   onEndTurn: () => void;
   onRollDeathSave: () => void;
   onRestart: () => void;
@@ -36,12 +37,20 @@ export const GameHUD: React.FC<GameHUDProps> = ({
   onSelectSkill,
   onOpenMinimap,
   onUseItem,
+  onEquipItem,
   onEndTurn,
   onRollDeathSave,
   onRestart,
 }) => {
   const isDowned = player.hp <= 0 || player.conditions.includes('downed');
   const hasInspiration = player.conditions.includes('inspired');
+  const slots: EquipmentSlot[] = ['weapon', 'armor', 'relic'];
+  const tooltip = (item: GameItem) => {
+    if (!item.slot) return item.description;
+    const old = player.equipment?.[item.slot];
+    const delta = (key: string) => (item.modifiers?.[key as keyof NonNullable<GameItem['modifiers']>] || 0) - (old?.modifiers?.[key as keyof NonNullable<GameItem['modifiers']>] || 0);
+    return `${item.description}\n${old ? `Replaces ${old.name}. ` : ''}AC ${delta('ac') >= 0 ? '+' : ''}${delta('ac')}, STR ${delta('STR') >= 0 ? '+' : ''}${delta('STR')}`;
+  };
 
   return (
     <div className="flex flex-col h-screen w-full bg-[#08090c] text-gray-200 select-none overflow-hidden">
@@ -291,6 +300,27 @@ export const GameHUD: React.FC<GameHUDProps> = ({
             )}
           </div>
         </div>
+
+          {/* INVENTORY / EQUIPMENT */}
+          <div className="border-t border-[#1f2436] bg-[#0b0d14] p-3 shrink-0">
+            <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-amber-400 mb-2">Inventory & Equipment</h3>
+            <div className="grid grid-cols-3 gap-2 mb-2">
+              {slots.map((slot) => {
+                const item = player.equipment?.[slot];
+                return <div key={slot} className="rounded border border-[#292f43] bg-[#111420] p-2" title={item?.description || `Empty ${slot}`}>
+                  <div className="text-[9px] uppercase text-gray-500">{slot}</div><div className="text-[10px] truncate">{item?.name || '— empty —'}</div>
+                  {item && <button onClick={() => onEquipItem(item)} className="text-[9px] text-amber-300">Unequip</button>}
+                </div>;
+              })}
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {(player.inventory || []).map((item) => <div key={item.id} className="group relative flex items-center gap-1 rounded border border-[#292f43] bg-[#111420] px-2 py-1">
+                <span className="text-[10px]">{item.type === 'potion' ? '🧪' : item.type === 'scroll' ? '📜' : item.type === 'weapon' ? '⚔️' : '🛡️'} {item.name} x{item.count}</span>
+                <button onClick={() => item.slot ? onEquipItem(item) : onUseItem(item)} className="text-[10px] text-emerald-300">{item.slot ? 'Equip' : 'Use'}</button>
+                <div className="pointer-events-none absolute bottom-full left-0 z-40 mb-1 hidden w-56 whitespace-pre-line rounded border border-amber-500/40 bg-[#080a10] p-2 text-[10px] shadow-xl group-hover:block">{tooltip(item)}{item.modifiers && `\nMods: ${Object.entries(item.modifiers).map(([k,v]) => `${k} ${v >= 0 ? '+' : ''}${v}`).join(', ')}`}</div>
+              </div>)}
+            </div>
+          </div>
 
         {/* RIGHT PANEL: CHRONICLE & LORE LOG (col-span-4) */}
         <aside className="w-full lg:w-96 border-t lg:border-t-0 lg:border-l border-[#1f2436] bg-[#0a0c13] flex flex-col h-64 lg:h-full shrink-0">

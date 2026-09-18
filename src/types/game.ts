@@ -119,6 +119,7 @@ export interface Entity {
   skills: Skill[];
   inventory?: GameItem[];
   equipment?: Partial<Record<EquipmentSlot, GameItem>>;
+  claimedLoot?: string[];
   color: string;
   icon: string;
   deathSaves: DeathSaves;

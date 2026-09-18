@@ -32,7 +32,7 @@ const isEntity = (value: unknown): value is Entity => {
     typeof value.hasUsedBonusAction === 'boolean';
 };
 
-const migrateEntityItems = (entity: Entity): Entity => ({ ...entity, ...(entity.inventory ? { inventory: entity.inventory.map(normalizeItem) } : {}), ...(entity.equipment ? { equipment: entity.equipment } : {}) });
+const migrateEntityItems = (entity: Entity): Entity => ({ ...entity, ...(entity.inventory ? { inventory: entity.inventory.map(normalizeItem) } : {}), ...(entity.equipment ? { equipment: Object.fromEntries(Object.entries(entity.equipment).map(([slot, item]) => [slot, normalizeItem(item)])) } : {}), ...(entity.claimedLoot ? { claimedLoot: entity.claimedLoot } : {}) });
 
 const isRoom = (value: unknown): value is Room => {
   if (!isRecord(value)) return false;

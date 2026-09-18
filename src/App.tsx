@@ -34,6 +34,8 @@ import {
   readSave,
   writeSave,
 } from './core/persistence';
+import { claimEnemyLoot, claimInteractableLoot } from './core/loot';
+import { equipItem } from './data/items';
 
 interface FloatingText {
   id: string;
@@ -283,6 +285,7 @@ export function App() {
     const item = currentRoom.interactables.find((i) => i.id === itemId);
     if (!item || item.resolved) return;
 
+    let interactionSucceeded = !item.check;
     // Check if item requires a D&D Stat check
     if (item.check) {
       const stat = item.check.stat;
@@ -300,6 +303,7 @@ export function App() {
       }
 
       if (roll.success) {
+        interactionSucceeded = true;
         sound.playCrit();
         addChronicle('check', `[SUCCESS DC ${item.check.dc}] ${item.onSuccess.message}`);
         let newHp = player.hp;
@@ -331,6 +335,8 @@ export function App() {
         setPhase('victory');
       }
     }
+
+    if (interactionSucceeded) setPlayer((p) => p ? claimInteractableLoot(p, currentRoom, item) : p);
 
     // Mark item resolved
     setRooms((prev) => ({
@@ -457,6 +463,15 @@ export function App() {
     });
   };
 
+  const handleEquipItem = (item: GameItem) => {
+    if (!player) return;
+    const result = equipItem(player, item.id);
+    if (result.equipped || player.equipment?.[item.slot || 'weapon']?.id === item.id) {
+      setPlayer(result.player);
+      addChronicle('narrative', result.equipped ? `⚔️ ${item.name} dipasang.` : `🧳 ${item.name} dilepas.`);
+    }
+  };
+
   // --- ATTACK ENEMY RESOLUTION ---
   const handleEnemyClick = (enemy: Entity) => {
     if (!player || player.hp <= 0) return;
@@ -537,7 +552,7 @@ export function App() {
     let updatedConditions = player.conditions.filter((c) => c !== 'inspired');
 
     // Action economy flag
-    let updatedPlayer = {
+    let updatedPlayer: Entity = {
       ...player,
       conditions: updatedConditions,
       hasUsedAction: activeSkill.costType === 'action' ? true : player.hasUsedAction,
@@ -569,6 +584,8 @@ export function App() {
 
       if (updatedHp <= 0) {
         addChronicle('combat', `💀 ${enemy.name} berhasil dikalahkan!`);
+        updatedPlayer = claimEnemyLoot(updatedPlayer, currentRoom, enemy);
+        addChronicle('narrative', `🎁 Loot diperoleh dari ${enemy.name}.`);
       }
 
       // Update enemy HP in room
@@ -777,6 +794,7 @@ export function App() {
             onSelectSkill={handleSelectSkill}
             onOpenMinimap={() => setIsMinimapOpen(true)}
             onUseItem={handleUseItem}
+            onEquipItem={handleEquipItem}
             onEndTurn={handleEndTurn}
             onRollDeathSave={handleRollDeathSave}
             onRestart={handleRestart}
