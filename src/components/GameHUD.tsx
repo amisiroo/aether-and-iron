@@ -10,6 +10,11 @@ import {
   ArrowRight,
   BookOpen,
   HelpCircle,
+  Backpack,
+  User,
+  X,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { CharacterPortrait } from './CharacterPortrait';
 import type { CombatStats } from '../core/replayability';
@@ -55,13 +60,18 @@ export const GameHUD: React.FC<GameHUDProps> = ({
 }) => {
   const isDowned = player.hp <= 0 || player.conditions.includes('downed');
   const hasInspiration = player.conditions.includes('inspired');
+  const [modal, setModal] = React.useState<'inventory' | 'profile' | null>(null);
+  const [chronicleCollapsed, setChronicleCollapsed] = React.useState(false);
+  const modalRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    if (!modal) return;
+    const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') setModal(null); };
+    window.addEventListener('keydown', onKeyDown);
+    modalRef.current?.focus();
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [modal]);
+  const closeModal = () => setModal(null);
   const slots: EquipmentSlot[] = ['weapon', 'armor', 'relic'];
-  const tooltip = (item: GameItem) => {
-    if (!item.slot) return item.description;
-    const old = player.equipment?.[item.slot];
-    const delta = (key: string) => (item.modifiers?.[key as keyof NonNullable<GameItem['modifiers']>] || 0) - (old?.modifiers?.[key as keyof NonNullable<GameItem['modifiers']>] || 0);
-    return `${item.description}\n${old ? `Replaces ${old.name}. ` : ''}AC ${delta('ac') >= 0 ? '+' : ''}${delta('ac')}, STR ${delta('STR') >= 0 ? '+' : ''}${delta('STR')}`;
-  };
 
   return (
     <div className="game-hud flex flex-col min-h-screen h-[100dvh] w-full bg-[#08090c] text-gray-200 select-none overflow-hidden">
@@ -105,6 +115,8 @@ export const GameHUD: React.FC<GameHUDProps> = ({
             </div>
           )}
 
+          <button onClick={() => setModal('inventory')} aria-label="Open inventory and equipment" className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-amber-500/40 text-amber-300 text-xs font-mono"><Backpack className="w-3.5 h-3.5" /> <span className="hidden sm:inline">INVENTORY</span></button>
+          <button onClick={() => setModal('profile')} aria-label="Open character profile" className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-cyan-500/40 text-cyan-200 text-xs font-mono"><User className="w-3.5 h-3.5" /> <span className="hidden sm:inline">PROFILE</span></button>
           <button
             onClick={onOpenMinimap}
             className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#141926] hover:bg-[#1f263a] border border-amber-500/40 text-amber-300 text-xs font-mono font-bold transition shadow-sm"
@@ -322,26 +334,7 @@ export const GameHUD: React.FC<GameHUDProps> = ({
           </div>
         </div>
 
-          {/* INVENTORY / EQUIPMENT */}
-          <div className="border-t border-[#1f2436] bg-[#0b0d14] p-3 shrink-0 max-h-44 overflow-y-auto">
-            <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-amber-400 mb-2">Inventory & Equipment</h3>
-            <div className="grid grid-cols-3 gap-2 mb-2">
-              {slots.map((slot) => {
-                const item = player.equipment?.[slot];
-                return <div key={slot} className="rounded border border-[#292f43] bg-[#111420] p-2" title={item?.description || `Empty ${slot}`}>
-                  <div className="text-[9px] uppercase text-gray-500">{slot}</div><div className="text-[10px] truncate">{item?.name || '— empty —'}</div>
-                  {item && <button onClick={() => onEquipItem(item)} className="text-[9px] text-amber-300">Unequip</button>}
-                </div>;
-              })}
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {(player.inventory || []).map((item) => <div key={item.id} className="group relative flex items-center gap-1 rounded border border-[#292f43] bg-[#111420] px-2 py-1">
-                <span className="text-[10px]">{item.type === 'potion' ? '🧪' : item.type === 'scroll' ? '📜' : item.type === 'weapon' ? '⚔️' : '🛡️'} {item.name} x{item.count}</span>
-                <button onClick={() => item.slot ? onEquipItem(item) : onUseItem(item)} className="text-[10px] text-emerald-300">{item.slot ? 'Equip' : 'Use'}</button>
-                <div className="pointer-events-none absolute bottom-full left-0 z-40 mb-1 hidden w-56 whitespace-pre-line rounded border border-amber-500/40 bg-[#080a10] p-2 text-[10px] shadow-xl group-hover:block">{tooltip(item)}{item.modifiers && `\nMods: ${Object.entries(item.modifiers).map(([k,v]) => `${k} ${v >= 0 ? '+' : ''}${v}`).join(', ')}`}</div>
-              </div>)}
-            </div>
-          </div>
+          {/* INVENTORY / EQUIPMENT is available in an accessible modal from the header. */}
 
         {/* RIGHT PANEL: CHRONICLE & LORE LOG (col-span-4) */}
         <aside className="w-full lg:w-96 border-t lg:border-t-0 lg:border-l border-[#1f2436] bg-[#0a0c13] flex flex-col min-h-0 h-64 lg:h-full shrink-0">
@@ -353,6 +346,7 @@ export const GameHUD: React.FC<GameHUDProps> = ({
                 Guild Chronicle & Log
               </h3>
             </div>
+            <button onClick={() => setChronicleCollapsed((value) => !value)} aria-expanded={!chronicleCollapsed} aria-controls="chronicle-log" className="p-1.5 rounded border border-[#2b334a] text-gray-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400" title={chronicleCollapsed ? 'Expand chronicle' : 'Collapse chronicle'}>{chronicleCollapsed ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}</button>
             <div className="flex items-center gap-1 text-[10px] text-gray-500 shrink-0 font-mono">
               <HelpCircle className="w-3 h-3" />
               <span>WASD / Click</span>
@@ -362,8 +356,7 @@ export const GameHUD: React.FC<GameHUDProps> = ({
             RUN SUMMARY · {combatStats.totalDamage} damage · {combatStats.totalHealing} healing · {combatStats.defeats} defeated · {combatStats.turns} turns
           </div>}
 
-          {/* Chronicle List */}
-          <div className="flex-1 min-h-0 p-3 overflow-y-auto space-y-2.5 font-mono text-xs">
+          {!chronicleCollapsed && <div id="chronicle-log" className="flex-1 min-h-0 p-3 overflow-y-auto space-y-2.5 font-mono text-xs" aria-label="Chronicle entries">
             {chronicle.map((entry) => (
               <div
                 key={entry.id}
@@ -386,7 +379,7 @@ export const GameHUD: React.FC<GameHUDProps> = ({
                 <div>{entry.text}</div>
               </div>
             ))}
-          </div>
+          </div>}
 
           {/* Tactical Hints Footer */}
           <div className="p-3 bg-[#0c0e15] border-t border-[#1c2132] text-[11px] text-gray-400 space-y-1 font-mono">
@@ -396,6 +389,15 @@ export const GameHUD: React.FC<GameHUDProps> = ({
             <div>• <b className="text-gray-300">Merciless AI:</b> Musuh mengeksekusi petualang downed!</div>
           </div>
         </aside>
+        {modal && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeModal(); }}>
+          <div ref={modalRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="secondary-panel-title" className="w-full max-w-2xl max-h-[min(80vh,680px)] overflow-y-auto rounded-xl border border-amber-500/40 bg-[#0b0d14] p-4 shadow-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400">
+            <div className="mb-4 flex items-center justify-between gap-3"><h2 id="secondary-panel-title" className="font-cinzel text-lg font-bold text-amber-300">{modal === 'inventory' ? 'Inventory & Equipment' : 'Character Profile'}</h2><button onClick={closeModal} aria-label="Close panel" className="rounded border border-[#2b334a] p-1.5 text-gray-300 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400"><X className="h-4 w-4" /></button></div>
+            {modal === 'inventory' ? <>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 mb-3">{slots.map((slot) => { const item = player.equipment?.[slot]; return <div key={slot} className="rounded border border-[#292f43] bg-[#111420] p-3"><div className="text-[10px] uppercase text-gray-500">{slot}</div><div className="truncate text-sm">{item?.name || '— empty —'}</div>{item && <button onClick={() => onEquipItem(item)} className="mt-1 text-xs text-amber-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400">Unequip</button>}</div>; })}</div>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">{(player.inventory || []).map((item) => <div key={item.id} className="flex items-center justify-between gap-2 rounded border border-[#292f43] bg-[#111420] p-3"><span className="text-sm">{item.type === 'potion' ? '🧪' : item.type === 'scroll' ? '📜' : item.type === 'weapon' ? '⚔️' : '🛡️'} {item.name} x{item.count}</span><button onClick={() => item.slot ? onEquipItem(item) : onUseItem(item)} className="text-xs text-emerald-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400">{item.slot ? 'Equip' : 'Use'}</button></div>)}</div>
+            </> : <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">{[['Class', player.classType], ['Level', String(player.progression?.level ?? 1)], ['HP', `${player.hp}/${player.maxHp}`], ['Armor Class', String(player.ac)], ...Object.entries(player.attributes).map(([key, value]) => [key, String(value)])].map(([label, value]) => <div key={label} className="rounded border border-[#292f43] bg-[#111420] p-3"><div className="text-xs text-gray-500">{label}</div><div className="font-mono text-amber-100">{value}</div></div>)}</div>}
+          </div>
+        </div>}
       </div>
     </div>
   );
