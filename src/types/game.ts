@@ -87,6 +87,14 @@ export type ItemType = 'potion' | 'scroll' | 'weapon' | 'armor' | 'relic';
 export type EquipmentSlot = 'weapon' | 'armor' | 'relic';
 export type StatModifiers = Partial<Record<AbilityScore, number>> & { ac?: number; maxHp?: number; speed?: number };
 
+export interface ProgressionState {
+  xp: number;
+  level: number;
+  appliedLevel?: number;
+  claimedXpAwards: string[];
+  skillRanks: Record<string, number>;
+}
+
 export interface GameItem {
   id: string;
   name: string;
@@ -120,6 +128,7 @@ export interface Entity {
   inventory?: GameItem[];
   equipment?: Partial<Record<EquipmentSlot, GameItem>>;
   claimedLoot?: string[];
+  progression?: ProgressionState;
   color: string;
   icon: string;
   deathSaves: DeathSaves;

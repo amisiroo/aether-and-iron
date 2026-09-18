@@ -36,6 +36,7 @@ import {
 } from './core/persistence';
 import { claimEnemyLoot, claimInteractableLoot } from './core/loot';
 import { equipItem } from './data/items';
+import { applyLevelUp, pendingLevelUps, awardXp } from './core/progression';
 
 interface FloatingText {
   id: string;
@@ -66,6 +67,7 @@ export function App() {
   const [floatingTexts, setFloatingTexts] = useState<FloatingText[]>([]);
   const [hasSaveGame, setHasSaveGame] = useState<boolean>(false);
   const [isMinimapOpen, setIsMinimapOpen] = useState<boolean>(false);
+  const [levelUpChoice, setLevelUpChoice] = useState<'power' | 'vitality' | 'skill' | null>(null);
 
   // Check saved game on mount; malformed saves are ignored by the persistence module.
   useEffect(() => {
@@ -178,6 +180,15 @@ export function App() {
       `Petualang ${createdHero.name} (${createdHero.classType?.toUpperCase()}) tiba di ${currentRoom.name}. ${currentRoom.lore}`
     );
     saveState(createdHero, currentRoomId, rooms, chronicle);
+  };
+
+  useEffect(() => {
+    if (player && pendingLevelUps(player) > 0) setLevelUpChoice((current) => current ?? 'power');
+  }, [player]);
+
+  const chooseLevelUp = (choice: 'power' | 'vitality' | 'skill') => {
+    if (!player) return;
+    try { setPlayer(applyLevelUp(player, choice).player); setLevelUpChoice(null); addChronicle('narrative', `✨ Level ${player.progression?.level} upgrade chosen: ${choice}.`); } catch { setLevelUpChoice(null); }
   };
 
   // Check if room enters combat
@@ -585,7 +596,9 @@ export function App() {
       if (updatedHp <= 0) {
         addChronicle('combat', `💀 ${enemy.name} berhasil dikalahkan!`);
         updatedPlayer = claimEnemyLoot(updatedPlayer, currentRoom, enemy);
-        addChronicle('narrative', `🎁 Loot diperoleh dari ${enemy.name}.`);
+        const xpResult = awardXp(updatedPlayer, { id: `enemy:${enemy.id}`, amount: 50, source: 'enemy', label: enemy.name });
+        updatedPlayer = xpResult.player;
+        addChronicle('narrative', `✨ +${xpResult.awarded} XP.`);
       }
 
       // Update enemy HP in room
@@ -828,6 +841,20 @@ export function App() {
             onEnemyClick={handleEnemyClick}
             onInteractableClick={handleInteractableClick}
           />
+        </div>
+      )}
+
+      {levelUpChoice && player && (
+        <div className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-6">
+          <div className="max-w-md w-full rounded-2xl border border-amber-500/50 bg-[#10131d] p-6 shadow-2xl">
+            <h2 className="text-2xl font-bold text-amber-300 mb-2">LEVEL UP — Choose an upgrade</h2>
+            <p className="text-sm text-gray-400 mb-4">Gameplay is paused until you choose.</p>
+            <div className="grid gap-2">
+              <button onClick={() => chooseLevelUp('power')} className="p-3 rounded-lg bg-red-950/60 border border-red-500/40 text-left"><b>Power</b><span className="block text-xs text-gray-400">+1 class primary attribute</span></button>
+              <button onClick={() => chooseLevelUp('vitality')} className="p-3 rounded-lg bg-emerald-950/60 border border-emerald-500/40 text-left"><b>Vitality</b><span className="block text-xs text-gray-400">+4 maximum HP and current HP</span></button>
+              <button onClick={() => chooseLevelUp('skill')} className="p-3 rounded-lg bg-purple-950/60 border border-purple-500/40 text-left"><b>Skill</b><span className="block text-xs text-gray-400">Unlock your class skill tree ability</span></button>
+            </div>
+          </div>
         </div>
       )}
 

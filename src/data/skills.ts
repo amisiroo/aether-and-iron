@@ -1,6 +1,15 @@
 import { Skill } from '../types/game';
 
 export const SKILLS_DATABASE: Record<string, Skill> = {
+  guard_break: { id: 'guard_break', name: 'Guard Break', type: 'action', costType: 'action', range: 1, stat: 'STR', damageDice: '1d10', damageType: 'slashing', description: 'A crushing strike that breaks a foe’s guard.' },
+  battle_focus: { id: 'battle_focus', name: 'Battle Focus', type: 'passive', costType: 'none', range: 0, stat: 'CON', description: 'Veteran focus improves your battlefield presence.' },
+  shadow_step: { id: 'shadow_step', name: 'Shadow Step', type: 'bonus_action', costType: 'bonus_action', range: 0, stat: 'DEX', description: 'Slip through darkness with uncanny speed.' },
+  precision_strike: { id: 'precision_strike', name: 'Precision Strike', type: 'action', costType: 'action', range: 4, stat: 'DEX', damageDice: '1d10', damageType: 'piercing', description: 'A precise shot at a vulnerable target.' },
+  arcane_burst: { id: 'arcane_burst', name: 'Arcane Burst', type: 'action', costType: 'action', range: 4, stat: 'INT', damageDice: '2d8', damageType: 'force', description: 'A focused burst of raw arcane power.' },
+  mana_surge: { id: 'mana_surge', name: 'Mana Surge', type: 'passive', costType: 'none', range: 0, stat: 'INT', description: 'Your spellcraft flows more freely.' },
+  blessing: { id: 'blessing', name: 'Blessing', type: 'bonus_action', costType: 'bonus_action', range: 1, stat: 'WIS', description: 'A prayer bolsters an ally.' },
+  radiant_ward: { id: 'radiant_ward', name: 'Radiant Ward', type: 'passive', costType: 'none', range: 0, stat: 'WIS', description: 'Radiant protection shields the faithful.' },
+
   // --- Basic Attacks ---
   melee_strike: {
     id: 'melee_strike',

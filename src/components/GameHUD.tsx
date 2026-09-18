@@ -197,7 +197,7 @@ export const GameHUD: React.FC<GameHUDProps> = ({
                     {player.name}
                   </span>
                   <span className="text-[10px] font-mono text-gray-400 uppercase">
-                    Lv.1 {player.classType}
+                    {player.progression ? `Lv.${player.progression.level} · XP ${player.progression.xp}` : 'Lv.1'} {player.classType}
                   </span>
                 </div>
 

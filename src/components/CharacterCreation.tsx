@@ -97,6 +97,7 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({
       remainingSpeed: selectedClass.baseSpeed,
       attributes,
       conditions: [],
+      progression: { xp: 0, level: 1, appliedLevel: 1, claimedXpAwards: [], skillRanks: {} },
       skills,
       inventory: [
         {

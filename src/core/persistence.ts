@@ -34,6 +34,13 @@ const isEntity = (value: unknown): value is Entity => {
 
 const migrateEntityItems = (entity: Entity): Entity => ({ ...entity, ...(entity.inventory ? { inventory: entity.inventory.map(normalizeItem) } : {}), ...(entity.equipment ? { equipment: Object.fromEntries(Object.entries(entity.equipment).map(([slot, item]) => [slot, normalizeItem(item)])) } : {}), ...(entity.claimedLoot ? { claimedLoot: entity.claimedLoot } : {}) });
 
+const migrateEntityProgression = (entity: Entity): Entity => ({
+  ...migrateEntityItems(entity),
+  progression: entity.progression && typeof entity.progression.xp === 'number'
+    ? { xp: Math.max(0, entity.progression.xp), level: Math.max(1, entity.progression.level || 1), appliedLevel: entity.progression.appliedLevel ?? Math.max(1, entity.progression.level || 1), claimedXpAwards: Array.isArray(entity.progression.claimedXpAwards) ? entity.progression.claimedXpAwards : [], skillRanks: isRecord(entity.progression.skillRanks) ? entity.progression.skillRanks as Record<string, number> : {} }
+    : { xp: 0, level: 1, appliedLevel: 1, claimedXpAwards: [], skillRanks: {} },
+});
+
 const isRoom = (value: unknown): value is Room => {
   if (!isRecord(value)) return false;
   return typeof value.id === 'string' && typeof value.name === 'string' &&
@@ -59,7 +66,7 @@ export function migrateSave(value: unknown): VersionedSave | null {
   const version = value.version;
   if (version !== undefined && version !== CURRENT_SAVE_VERSION) return null;
   if (!isSaveShape(value)) return null;
-  return { version: CURRENT_SAVE_VERSION, player: migrateEntityItems(value.player), currentRoomId: value.currentRoomId, rooms: value.rooms, chronicle: value.chronicle.slice(0, 50) };
+  return { version: CURRENT_SAVE_VERSION, player: migrateEntityProgression(value.player), currentRoomId: value.currentRoomId, rooms: value.rooms, chronicle: value.chronicle.slice(0, 50) };
 }
 
 export function serializeSave(save: SaveGame): string {

@@ -24,12 +24,14 @@ const state: SaveGame = {
 describe('save persistence', () => {
   it('round-trips a versioned save', () => {
     const parsed = deserializeSave(serializeSave(state));
-    expect(parsed).toEqual({ ...state, version: CURRENT_SAVE_VERSION });
+    expect(parsed?.player.progression).toEqual({ xp: 0, level: 1, appliedLevel: 1, claimedXpAwards: [], skillRanks: {} });
+    expect(parsed).toMatchObject({ ...state, version: CURRENT_SAVE_VERSION });
   });
 
   it('migrates the legacy unversioned v1 payload', () => {
     const legacy = { player: state.player, currentRoomId: state.currentRoomId, rooms: state.rooms, chronicle: state.chronicle };
-    expect(migrateSave(legacy)).toEqual({ ...state, version: CURRENT_SAVE_VERSION });
+    expect(migrateSave(legacy)?.player.progression).toEqual({ xp: 0, level: 1, appliedLevel: 1, claimedXpAwards: [], skillRanks: {} });
+    expect(migrateSave(legacy)).toMatchObject({ ...state, version: CURRENT_SAVE_VERSION });
   });
 
   it('rejects corrupt and incompatible payloads safely', () => {
