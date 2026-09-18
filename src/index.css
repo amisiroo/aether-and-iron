@@ -19,6 +19,7 @@ html { font-size: var(--ui-font-scale, 1em); }
 }
 
 .game-hud button { min-height: 2.25rem; }
+.game-menu,.simple-panel{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem;background:radial-gradient(circle at top,#242039,#08090c 65%);text-align:center}.game-menu h1{font-size:clamp(3rem,10vw,7rem);color:#fbbf24;margin:.3rem 0}.menu-subtitle{color:#a1a1aa;margin-bottom:2rem}.menu-actions{display:grid;gap:.7rem;width:min(24rem,100%)}.menu-actions button,.simple-panel button{min-height:3rem;border:1px solid #3f465c;border-radius:.7rem;background:#151a29;color:#e5e7eb;padding:.7rem 1rem;font-weight:700}.menu-actions .primary-button,.primary-button{background:linear-gradient(110deg,#d97706,#fbbf24);color:#111827;border:0}.menu-secondary{display:flex;gap:.7rem}.simple-panel h1{color:#fbbf24}.panel-content{width:min(32rem,100%);margin-top:1rem;background:#10131d;border:1px solid #30384c;border-radius:1rem;padding:1.5rem;text-align:left}.setting-row{display:flex;gap:.7rem;padding:.8rem 0;align-items:center}.modal-backdrop{position:fixed;inset:0;z-index:80;display:grid;place-items:center;padding:1rem;background:#000b}.encounter-modal{width:min(34rem,100%);padding:1.5rem;border:1px solid #f59e0b;border-radius:1rem;background:#10131d;box-shadow:0 1rem 4rem #000;color:#e5e7eb}.encounter-modal h2{color:#fbbf24}
 @media (orientation: landscape) and (max-height: 600px) {
   .game-hud header { min-height: 3rem; padding-block: .35rem; }
   .game-hud #canvas-container { min-height: 12rem; }

@@ -1,0 +1,5 @@
+import type { Room } from '../types/game';
+export interface EncounterIntro { roomName: string; enemies: Array<{ name: string; count: number }>; hazards: string[]; objectives: string[]; }
+export function encounterIntro(room: Room): EncounterIntro { const counts = new Map<string, number>(); room.enemies.filter((enemy) => enemy.hp > 0).forEach((enemy) => counts.set(enemy.name, (counts.get(enemy.name) || 0) + 1)); return { roomName: room.name, enemies: [...counts].map(([name, count]) => ({ name, count })), hazards: room.layout.some((row) => row.includes('^')) ? ['Web hazard'] : [], objectives: room.interactables.filter((item) => !item.resolved).map((item) => item.name) }; }
+export function shouldShowEncounter(previous: 'exploration' | 'combat', next: 'exploration' | 'combat', roomId: string, shown: Set<string>): boolean { return previous === 'exploration' && next === 'combat' && !shown.has(roomId); }
+export function markEncounterShown(shown: Set<string>, roomId: string): Set<string> { return new Set(shown).add(roomId); }

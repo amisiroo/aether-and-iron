@@ -24,6 +24,7 @@ interface CharacterCreationProps {
   onCharacterCreated: (character: Entity) => void;
   hasSave?: boolean;
   onLoadGame?: () => void;
+  onBack?: () => void;
 }
 
 const ABILITY_INFO: Record<AbilityScore, { label: string; desc: string }> = {
@@ -39,6 +40,7 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({
   onCharacterCreated,
   hasSave,
   onLoadGame,
+  onBack,
 }) => {
   const [name, setName] = useState<string>('Reza the Guild Delver');
   const [selectedClassId, setSelectedClassId] = useState<CharacterClass>('fighter');
@@ -119,6 +121,7 @@ export const CharacterCreation: React.FC<CharacterCreationProps> = ({
 
   return (
     <div className="w-full h-full min-h-screen bg-[#08090c] text-gray-200 flex flex-col p-2.5 sm:p-4 font-sans overflow-y-auto select-none">
+      {onBack && <button onClick={onBack} className="self-start mb-2 px-3 py-2 rounded border border-[#2a3042] text-xs text-gray-300">← Main menu</button>}
       {/* Background Subtle Ambience */}
       <div className="fixed inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-950/20 via-transparent to-transparent" />
 

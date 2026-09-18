@@ -47,6 +47,9 @@ import { advanceTutorial, initialTutorialState, type TutorialState } from './cor
 import { TUTORIAL_KEY } from './core/persistence';
 import { createRunState, startNewGamePlus, type ChallengeModifier, type RunState } from './core/replayability';
 import { classifyTileInteraction } from './core/interaction';
+import { ShellView, readPreferences, writePreferences } from './core/gameShell';
+import { encounterIntro } from './core/encounterIntro';
+import { GameMenu, SimplePanel } from './components/GameShell';
 
 interface FloatingText {
   id: string;
@@ -61,6 +64,10 @@ interface FloatingText {
 export function App() {
   // Game Phase
   const [phase, setPhase] = useState<GamePhase>('creation');
+  const [shell, setShell] = useState<ShellView>('menu');
+  const [encounterIntroOpen, setEncounterIntroOpen] = useState(false);
+  const [shownEncounters, setShownEncounters] = useState<Set<string>>(new Set());
+  const [preferences, setPreferences] = useState(readPreferences);
 
   // Dungeon Rooms
   const [rooms, setRooms] = useState<Record<string, Room>>(CHAPTER_1_ROOMS);
@@ -97,6 +104,7 @@ export function App() {
     setShowTutorial(!tutorial.completed);
   }, []);
   useEffect(() => { localStorage.setItem(TUTORIAL_KEY, JSON.stringify(tutorial)); }, [tutorial]);
+  useEffect(() => { writePreferences(preferences); }, [preferences]);
   useEffect(() => { document.documentElement.style.setProperty('--ui-font-scale', `${fontScale}em`); document.documentElement.dataset.reducedMotion = String(reducedMotion); }, [fontScale, reducedMotion]);
   useEffect(() => { const onKey = (event: KeyboardEvent) => { if (event.key === '?' || (event.key === '/' && event.shiftKey)) { event.preventDefault(); setShowTutorial(true); } if (event.key === 'Escape') setShowTutorial(false); if (event.key === '+' || event.key === '=') setFontScale((v) => Math.min(1.4, v + .05)); if (event.key === '-') setFontScale((v) => Math.max(.85, v - .05)); }; window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey); }, []);
 
@@ -231,6 +239,7 @@ export function App() {
     const hasAliveEnemies = currentRoom.enemies.some((e) => e.hp > 0);
     if (hasAliveEnemies && phase !== 'combat') {
       setPhase('combat');
+      if (!shownEncounters.has(currentRoomId)) { setShownEncounters((shown) => new Set(shown).add(currentRoomId)); setEncounterIntroOpen(true); }
       addChronicle(
         'combat',
         `⚠️ ANCAMAN TERDETEKSI! Musuh di ${currentRoom.name} mengambil posisi siaga. Giliran taktis dimulai!`
@@ -885,11 +894,17 @@ export function App() {
   return (
     <div className="w-full h-screen bg-[#08090c] text-white overflow-x-hidden overflow-y-auto">
       {/* 1. CHARACTER CREATION SCREEN */}
-      {phase === 'creation' && (
+      {shell === 'menu' && phase === 'creation' && <GameMenu hasSave={hasSaveGame} onNew={() => setShell('creation')} onContinue={handleLoadGame} onLoad={() => setShell('load')} onSettings={() => setShell('settings')} onCodex={() => setShell('codex')} onCredits={() => setShell('credits')} />}
+      {shell === 'load' && <SimplePanel title="Load Game" onBack={() => setShell('menu')}><button className="primary-button" disabled={!hasSaveGame} onClick={handleLoadGame}>{hasSaveGame ? 'Continue primary save' : 'No valid save found'}</button></SimplePanel>}
+      {shell === 'settings' && <SimplePanel title="Settings" onBack={() => setShell('menu')}><label className="setting-row"><input type="checkbox" checked={preferences.sound} onChange={e=>setPreferences({...preferences,sound:e.target.checked})}/> Audio enabled</label><label className="setting-row"><input type="checkbox" checked={preferences.reducedMotion} onChange={e=>setPreferences({...preferences,reducedMotion:e.target.checked})}/> Reduced motion</label><label className="setting-row">UI scale <input type="range" min=".85" max="1.4" step=".05" value={preferences.fontScale} onChange={e=>setPreferences({...preferences,fontScale:Number(e.target.value)})}/></label></SimplePanel>}
+      {shell === 'codex' && <SimplePanel title="Codex" onBack={() => setShell('menu')}><p>The Sunken Reliquary is a drowned archive where iron guardians protect the Obsidian Heart.</p></SimplePanel>}
+      {shell === 'credits' && <SimplePanel title="Credits" onBack={() => setShell('menu')}><p>Aether &amp; Iron — Chapter One.</p></SimplePanel>}
+      {shell === 'creation' && phase === 'creation' && (
         <CharacterCreation
           onCharacterCreated={handleCharacterCreated}
           hasSave={hasSaveGame}
           onLoadGame={handleLoadGame}
+          onBack={() => setShell('menu')}
         />
       )}
 
@@ -942,6 +957,8 @@ export function App() {
           />
         </div>
       )}
+
+      {encounterIntroOpen && <div className="modal-backdrop" role="presentation"><section className="encounter-modal" role="dialog" aria-modal="true" aria-labelledby="encounter-title" onKeyDown={e=>{if(e.key==='Escape'||e.key==='Enter')setEncounterIntroOpen(false)}} tabIndex={-1} autoFocus><p className="eyebrow">ENCOUNTER DETECTED</p><h2 id="encounter-title">{encounterIntro(currentRoom).roomName}</h2><p>Enemies: {encounterIntro(currentRoom).enemies.map(e=>`${e.name} ×${e.count}`).join(', ') || 'None'}</p><p>Hazards: {encounterIntro(currentRoom).hazards.join(', ') || 'None detected'}</p><p>Objectives: {encounterIntro(currentRoom).objectives.join(', ') || 'Survive the encounter'}</p><button className="primary-button" onClick={()=>setEncounterIntroOpen(false)}>Enter Combat</button></section></div>}
 
       {showTutorial && <TutorialOverlay state={tutorial} onClose={() => setShowTutorial(false)} onNext={() => { const next = advanceTutorial(tutorial); setTutorial(next); if (next.completed) setShowTutorial(false); }} />}
 
