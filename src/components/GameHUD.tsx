@@ -26,6 +26,8 @@ interface GameHUDProps {
   onEndTurn: () => void;
   onRollDeathSave: () => void;
   onRestart: () => void;
+  onOpenHelp?: () => void;
+  onScaleFont?: (delta: number) => void;
   quests?: QuestState[];
 }
 
@@ -42,6 +44,8 @@ export const GameHUD: React.FC<GameHUDProps> = ({
   onEndTurn,
   onRollDeathSave,
   onRestart,
+  onOpenHelp,
+  onScaleFont,
   quests = [],
 }) => {
   const isDowned = player.hp <= 0 || player.conditions.includes('downed');
@@ -104,6 +108,10 @@ export const GameHUD: React.FC<GameHUDProps> = ({
             <span className="hidden sm:inline">CHART / MAP</span>
           </button>
 
+          <button onClick={onOpenHelp} aria-label="Open field guide" title="Help (?)" className="px-2.5 py-1 rounded-lg border border-cyan-500/40 text-cyan-200 text-xs font-mono">? HELP</button>
+          <button onClick={() => onScaleFont?.(-.05)} aria-label="Decrease text size" className="px-2 py-1 rounded border border-[#2b334a] text-xs">A−</button>
+          <button onClick={() => onScaleFont?.(.05)} aria-label="Increase text size" className="px-2 py-1 rounded border border-[#2b334a] text-xs">A+</button>
+
           <button
             onClick={onRestart}
             className="text-xs font-mono text-gray-400 hover:text-gray-200 border border-[#23283a] hover:border-[#3b4463] px-3 py-1 rounded transition"
@@ -112,8 +120,10 @@ export const GameHUD: React.FC<GameHUDProps> = ({
           </button>
         </div>
       </header>
-      <div className="hidden xl:block absolute top-14 left-0 right-96 z-20 px-4 py-1 bg-amber-950/40 text-[10px] font-mono text-amber-200 truncate">
+      <div role="status" aria-live="polite" className="absolute top-14 left-0 right-0 lg:right-96 z-20 px-4 py-1 bg-amber-950/70 text-[10px] font-mono text-amber-200 truncate">
         {quests.filter(q => q.status === 'active').flatMap(q => q.objectives.filter(o => o.status === 'active').map(o => `${o.id} ${o.progress}/${o.target}`)).join(' · ')}
+        {currentRoom.enemies.some(e => e.id.includes('boss') && e.hp > 0) && <span className="ml-3 text-red-200">⚠ BOSS PRESENT · summon/hazard telegraphs active</span>}
+        {currentRoom.layout.some(row => row.includes('^')) && <span className="ml-3 text-purple-200">◇ HAZARD TILES TELEGRAPHED (^)</span>}
       </div>
 
       {/* 2. MAIN WORKSPACE (CANVAS IN CENTER/LEFT, CHRONICLE IN RIGHT) */}

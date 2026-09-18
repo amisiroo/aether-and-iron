@@ -659,6 +659,10 @@ export const CanvasGrid: React.FC<CanvasGridProps> = ({
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
         onClick={handleClick}
+        tabIndex={0}
+        role="application"
+        aria-label={`Tactical map: ${room.name}. Tap or click a tile to move; select an enemy to attack.`}
+        onKeyDown={(event) => { const moves: Record<string, Point> = { ArrowUp: { x: 0, y: -1 }, w: { x: 0, y: -1 }, ArrowDown: { x: 0, y: 1 }, s: { x: 0, y: 1 }, ArrowLeft: { x: -1, y: 0 }, a: { x: -1, y: 0 }, ArrowRight: { x: 1, y: 0 }, d: { x: 1, y: 0 } }; const move = moves[event.key]; if (move) { event.preventDefault(); onTileClick(player.x + move.x, player.y + move.y); } }}
         className="rounded-xl border border-[#23293d] shadow-2xl bg-[#080a10] cursor-crosshair max-w-full max-h-full object-contain"
       />
     </div>

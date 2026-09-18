@@ -42,6 +42,9 @@ import { equipItem } from './data/items';
 import { applyLevelUp, pendingLevelUps, awardXp } from './core/progression';
 import { createQuestStates, createConsequenceFlags, progressObjective, resolvePuzzle, unlockRoom, claimQuestReward } from './core/quests';
 import { createIronWardenEncounter, applyBossDamage, resolveBossTurn, markBossDefeated } from './core/boss';
+import { TutorialOverlay } from './components/TutorialOverlay';
+import { advanceTutorial, initialTutorialState, type TutorialState } from './core/tutorial';
+import { TUTORIAL_KEY } from './core/persistence';
 
 interface FloatingText {
   id: string;
@@ -77,11 +80,20 @@ export function App() {
   const [consequenceFlags, setConsequenceFlags] = useState<ConsequenceFlags>(createConsequenceFlags);
   const [bossEncounter, setBossEncounter] = useState<BossEncounterState>(createIronWardenEncounter);
   const [choice, setChoice] = useState<{ title: string; prompt: string; options: Array<{ label: string; flag: string }> } | null>(null);
+  const [tutorial, setTutorial] = useState<TutorialState>(() => { try { return JSON.parse(localStorage.getItem(TUTORIAL_KEY) || 'null') ?? initialTutorialState(); } catch { return initialTutorialState(); } });
+  const [showTutorial, setShowTutorial] = useState(false);
+  const [fontScale, setFontScale] = useState(1);
+  const [reducedMotion, setReducedMotion] = useState(false);
 
   // Check saved game on mount; malformed saves are ignored by the persistence module.
   useEffect(() => {
     setHasSaveGame(Boolean(readSave()));
+    setReducedMotion(window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    setShowTutorial(!tutorial.completed);
   }, []);
+  useEffect(() => { localStorage.setItem(TUTORIAL_KEY, JSON.stringify(tutorial)); }, [tutorial]);
+  useEffect(() => { document.documentElement.style.setProperty('--ui-font-scale', `${fontScale}em`); document.documentElement.dataset.reducedMotion = String(reducedMotion); }, [fontScale, reducedMotion]);
+  useEffect(() => { const onKey = (event: KeyboardEvent) => { if (event.key === '?' || (event.key === '/' && event.shiftKey)) { event.preventDefault(); setShowTutorial(true); } if (event.key === 'Escape') setShowTutorial(false); if (event.key === '+' || event.key === '=') setFontScale((v) => Math.min(1.4, v + .05)); if (event.key === '-') setFontScale((v) => Math.max(.85, v - .05)); }; window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey); }, []);
 
   // Story Chronicle Log
   const [chronicle, setChronicle] = useState<ChronicleEntry[]>([
@@ -868,6 +880,8 @@ export function App() {
             onEndTurn={handleEndTurn}
             onRollDeathSave={handleRollDeathSave}
             onRestart={handleRestart}
+            onOpenHelp={() => setShowTutorial(true)}
+            onScaleFont={(delta) => setFontScale((value) => Math.max(.85, Math.min(1.4, value + delta)))}
             quests={quests}
           />
 
@@ -901,6 +915,8 @@ export function App() {
           />
         </div>
       )}
+
+      {showTutorial && <TutorialOverlay state={tutorial} onClose={() => setShowTutorial(false)} onNext={() => { const next = advanceTutorial(tutorial); setTutorial(next); if (next.completed) setShowTutorial(false); }} />}
 
       {levelUpChoice && player && (
         <div className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-6">
