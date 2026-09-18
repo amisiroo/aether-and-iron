@@ -25,6 +25,7 @@ import { MinimapModal } from './components/MinimapModal';
 import { CanvasGrid } from './renderer/CanvasGrid';
 import { Trophy, RefreshCw } from 'lucide-react';
 import { sound } from './utils/audio';
+import { findPath, Point } from './core/map';
 
 const SAVE_KEY = 'aether_and_iron_save_v1';
 
@@ -220,91 +221,41 @@ export function App() {
     }
   }, [currentRoom.enemies, currentRoomId, phase, addChronicle]);
 
+  const [movementPreview, setMovementPreview] = useState<{ path: Point[]; cost: number; reason?: string } | null>(null);
+
   // --- PLAYER MOVEMENT & TILE INTERACTION ---
   const handleTileClick = (tx: number, ty: number) => {
     if (!player || player.hp <= 0) return;
-
-    // Check bounds
-    if (ty < 0 || ty >= currentRoom.layout.length || tx < 0 || tx >= currentRoom.layout[0].length) {
-      return;
-    }
-
-    const char = currentRoom.layout[ty][tx];
-    if (char === '#') return; // Cannot walk into walls
-
-    // Check if tile is occupied by an alive enemy
+    const occupied = currentRoom.enemies.filter((e) => e.hp > 0).map(({ x, y }) => ({ x, y }));
     const enemyOnTile = currentRoom.enemies.find((e) => e.x === tx && e.y === ty && e.hp > 0);
-    if (enemyOnTile) {
-      // If clicked on enemy, trigger attack
-      handleEnemyClick(enemyOnTile);
+    if (enemyOnTile) { handleEnemyClick(enemyOnTile); return; }
+    const result = findPath(currentRoom.layout, { x: player.x, y: player.y }, { x: tx, y: ty }, occupied);
+    setMovementPreview(result);
+    if (!result.path.length) {
+      addChronicle('combat', result.reason === 'occupied' ? 'Tile ditempati musuh.' : result.reason === 'blocked' ? 'Tile terhalang obstacle.' : 'Jalur tidak tersedia.');
       return;
     }
-
-    // Calculate movement cost
-    const dist = Math.abs(player.x - tx) + Math.abs(player.y - ty);
-    if (dist === 0) {
-      if (selectedSkill && (selectedSkill.id === 'cure_wounds' || selectedSkill.range === 0)) {
-        handleSelfCastSkill(selectedSkill);
-      }
+    if (result.path.length === 1) {
+      if (selectedSkill && (selectedSkill.id === 'cure_wounds' || selectedSkill.range === 0)) handleSelfCastSkill(selectedSkill);
       return;
     }
-
-    const isRubble = char === '~';
-    const moveCost = isRubble ? dist * 2 : dist;
-
-    // In combat, check movement point limit
-    if (phase === 'combat') {
-      if (moveCost > player.remainingSpeed) {
-        addChronicle('combat', `Movement point tidak cukup (${moveCost} dibutuhkan, sisa ${player.remainingSpeed}).`);
-        return;
-      }
+    if (phase === 'combat' && result.cost > player.remainingSpeed) {
+      addChronicle('combat', `Movement point tidak cukup (${result.cost} dibutuhkan, sisa ${player.remainingSpeed}).`);
+      return;
     }
-
-    // Step to tile
-    const newPlayer = {
-      ...player,
-      x: tx,
-      y: ty,
-      remainingSpeed: phase === 'combat' ? player.remainingSpeed - moveCost : player.speed,
-    };
-
-    // If stepped on Hazard Tile (Web / Spikes)
+    const char = currentRoom.layout[ty][tx];
+    const newPlayer = { ...player, x: tx, y: ty, remainingSpeed: phase === 'combat' ? player.remainingSpeed - result.cost : player.speed };
     if (char === '^') {
       const dexMod = getAbilityModifier(player.attributes.DEX);
       const saveRoll = rollD20(dexMod, 'normal', 12, 'DEX Save vs Web Hazard [DC 12]');
       setActiveRoll(saveRoll);
-
-      if (!saveRoll.success) {
-        newPlayer.conditions = [...newPlayer.conditions.filter((c) => c !== 'restrained'), 'restrained'];
-        newPlayer.remainingSpeed = 0;
-        triggerFloatingText(tx, ty, 'RESTRAINED!', '#c084fc');
-        addChronicle(
-          'hazard',
-          `🕸️ Terjerat sarang laba-laba! Gagal DEX Save (${saveRoll.total} < 12). Kamu terkena status RESTRAINED (-Disadvantage on attacks)!`
-        );
-      } else {
-        triggerFloatingText(tx, ty, 'SAVED!', '#10b981');
-        addChronicle(
-          'hazard',
-          `Lolos dari jeratan sarang! DEX Save Sukses (${saveRoll.total} >= 12).`
-        );
-      }
+      if (!saveRoll.success) { newPlayer.conditions = [...newPlayer.conditions.filter((c) => c !== 'restrained'), 'restrained']; newPlayer.remainingSpeed = 0; triggerFloatingText(tx, ty, 'RESTRAINED!', '#c084fc'); addChronicle('hazard', `🕸️ Terjerat sarang laba-laba! Gagal DEX Save (${saveRoll.total} < 12).`); }
+      else { triggerFloatingText(tx, ty, 'SAVED!', '#10b981'); addChronicle('hazard', `Lolos dari jeratan sarang! DEX Save Sukses (${saveRoll.total} >= 12).`); }
     }
-
-    // Check Door transition
-    if (char === 'D' || char === 'S') {
-      let nextRoomKey: string | undefined;
-      if (ty === 1 && currentRoom.exits.north) nextRoomKey = currentRoom.exits.north;
-      else if (ty >= currentRoom.height - 2 && currentRoom.exits.south) nextRoomKey = currentRoom.exits.south;
-      else if (currentRoom.exits.north) nextRoomKey = currentRoom.exits.north;
-      else if (currentRoom.exits.south) nextRoomKey = currentRoom.exits.south;
-
-      if (nextRoomKey && rooms[nextRoomKey]) {
-        transitionToRoom(nextRoomKey, newPlayer);
-        return;
-      }
+    if ((char === 'D' || char === 'S')) {
+      const nextRoomKey = ty === 1 && currentRoom.exits.north ? currentRoom.exits.north : ty >= currentRoom.height - 2 && currentRoom.exits.south ? currentRoom.exits.south : currentRoom.exits.north || currentRoom.exits.south;
+      if (nextRoomKey && rooms[nextRoomKey]) { transitionToRoom(nextRoomKey, newPlayer); return; }
     }
-
     setPlayer(newPlayer);
   };
 
@@ -932,6 +883,14 @@ export function App() {
             selectedSkill={selectedSkill}
             floatingTexts={floatingTexts}
             onTileClick={handleTileClick}
+            onTileHover={(x, y) => {
+              if (!player) return;
+              const occupied = currentRoom.enemies.filter((e) => e.hp > 0).map(({ x: ex, y: ey }) => ({ x: ex, y: ey }));
+              setMovementPreview(findPath(currentRoom.layout, { x: player.x, y: player.y }, { x, y }, occupied));
+            }}
+            movementPath={movementPreview?.path}
+            movementCost={movementPreview?.cost}
+            movementInvalidReason={movementPreview?.reason}
             onEnemyClick={handleEnemyClick}
             onInteractableClick={handleInteractableClick}
           />

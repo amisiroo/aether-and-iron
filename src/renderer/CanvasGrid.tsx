@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { Entity, Room, Skill, TileType } from '../types/game';
+import { Point } from '../core/map';
 
 interface FloatingText {
   id: string;
@@ -18,7 +19,11 @@ interface CanvasGridProps {
   selectedSkill: Skill | null;
   floatingTexts: FloatingText[];
   onTileClick: (x: number, y: number) => void;
+  onTileHover?: (x: number, y: number) => void;
   onEnemyClick: (enemy: Entity) => void;
+  movementPath?: Point[];
+  movementCost?: number;
+  movementInvalidReason?: string;
   onInteractableClick: (id: string) => void;
 }
 
@@ -29,7 +34,11 @@ export const CanvasGrid: React.FC<CanvasGridProps> = ({
   selectedSkill,
   floatingTexts,
   onTileClick,
+  onTileHover,
   onEnemyClick,
+  movementPath = [],
+  movementCost,
+  movementInvalidReason,
   onInteractableClick,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -299,6 +308,12 @@ export const CanvasGrid: React.FC<CanvasGridProps> = ({
     }
 
     // 4. HOVERED TILE OUTLINE
+    movementPath.forEach((point, index) => {
+      ctx.fillStyle = index === 0 ? 'rgba(34, 197, 94, 0.22)' : 'rgba(56, 189, 248, 0.18)';
+      ctx.fillRect(point.x * TILE_SIZE, point.y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+      ctx.strokeStyle = '#38bdf8';
+      ctx.strokeRect(point.x * TILE_SIZE + 4, point.y * TILE_SIZE + 4, TILE_SIZE - 8, TILE_SIZE - 8);
+    });
     if (hoveredTile) {
       const px = hoveredTile.x * TILE_SIZE;
       const py = hoveredTile.y * TILE_SIZE;
@@ -535,6 +550,18 @@ export const CanvasGrid: React.FC<CanvasGridProps> = ({
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
     ctx.restore();
 
+    if (hoveredTile && (movementCost !== undefined || movementInvalidReason)) {
+      ctx.save();
+      ctx.font = 'bold 12px monospace';
+      ctx.fillStyle = movementInvalidReason ? '#f87171' : '#7dd3fc';
+      ctx.fillText(
+        movementInvalidReason ? movementInvalidReason : `Move cost: ${movementCost}`,
+        hoveredTile.x * TILE_SIZE + 4,
+        hoveredTile.y * TILE_SIZE + 14
+      );
+      ctx.restore();
+    }
+
     // 8. RENDER FLOATING DAMAGE NUMBERS
     floatingTexts.forEach((ft) => {
       ctx.save();
@@ -558,6 +585,10 @@ export const CanvasGrid: React.FC<CanvasGridProps> = ({
     canvasWidth,
     canvasHeight,
     getTileTypeAt,
+    movementPath,
+    movementCost,
+    movementInvalidReason,
+    onTileHover,
   ]);
 
   // Mouse Handlers
@@ -576,6 +607,7 @@ export const CanvasGrid: React.FC<CanvasGridProps> = ({
 
     if (x >= 0 && x < room.width && y >= 0 && y < room.height) {
       setHoveredTile({ x, y });
+      onTileHover?.(x, y);
     } else {
       setHoveredTile(null);
     }
