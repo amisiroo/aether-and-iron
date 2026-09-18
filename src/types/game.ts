@@ -173,3 +173,11 @@ export interface ChronicleEntry {
 }
 
 export type GamePhase = 'creation' | 'exploration' | 'combat' | 'game_over' | 'victory';
+export type BossPhase = 'armored' | 'overdrive' | 'cataclysm' | 'defeated';
+export interface BossEncounterState {
+  bossId: 'boss_iron_warden'; hp: number; maxHp: number; phase: BossPhase;
+  transitions: Array<'overdrive' | 'cataclysm'>; summonsRemaining: number;
+  arenaHazards: string[]; disabledPillars: string[];
+  telegraph?: { id: 'warden_cataclysm'; name: string; area: number; damageDice: string };
+  turn: number; victory: { completed: boolean; rewardId: 'obsidian_heart'; summary: string };
+}

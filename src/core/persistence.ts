@@ -1,4 +1,4 @@
-import type { ChronicleEntry, Entity, Room, QuestState, ConsequenceFlags } from '../types/game';
+import type { ChronicleEntry, Entity, Room, QuestState, ConsequenceFlags, BossEncounterState } from '../types/game';
 import { normalizeItem } from '../data/items';
 
 export const SAVE_KEY = 'aether_and_iron_save_primary';
@@ -13,6 +13,7 @@ export interface SaveGame {
   chronicle: ChronicleEntry[];
   quests?: QuestState[];
   consequenceFlags?: ConsequenceFlags;
+  bossEncounter?: BossEncounterState;
 }
 
 export interface VersionedSave extends SaveGame {

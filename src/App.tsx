@@ -10,6 +10,7 @@ import {
   RollMode,
   QuestState,
   ConsequenceFlags,
+  BossEncounterState,
 } from './types/game';
 import { CHAPTER_1_ROOMS } from './data/rooms';
 import {
@@ -40,6 +41,7 @@ import { claimEnemyLoot, claimInteractableLoot } from './core/loot';
 import { equipItem } from './data/items';
 import { applyLevelUp, pendingLevelUps, awardXp } from './core/progression';
 import { createQuestStates, createConsequenceFlags, progressObjective, resolvePuzzle, unlockRoom, claimQuestReward } from './core/quests';
+import { createIronWardenEncounter, applyBossDamage, resolveBossTurn, markBossDefeated } from './core/boss';
 
 interface FloatingText {
   id: string;
@@ -73,6 +75,7 @@ export function App() {
   const [levelUpChoice, setLevelUpChoice] = useState<'power' | 'vitality' | 'skill' | null>(null);
   const [quests, setQuests] = useState<QuestState[]>(createQuestStates);
   const [consequenceFlags, setConsequenceFlags] = useState<ConsequenceFlags>(createConsequenceFlags);
+  const [bossEncounter, setBossEncounter] = useState<BossEncounterState>(createIronWardenEncounter);
   const [choice, setChoice] = useState<{ title: string; prompt: string; options: Array<{ label: string; flag: string }> } | null>(null);
 
   // Check saved game on mount; malformed saves are ignored by the persistence module.
@@ -97,11 +100,11 @@ export function App() {
   // Helper to save state
   const saveState = useCallback(
     (hero: Entity, rId: string, rms: Record<string, Room>, ch: ChronicleEntry[]) => {
-      if (writeSave({ player: hero, currentRoomId: rId, rooms: rms, chronicle: ch.slice(0, 30), quests, consequenceFlags })) {
+      if (writeSave({ player: hero, currentRoomId: rId, rooms: rms, chronicle: ch.slice(0, 30), quests, consequenceFlags, bossEncounter })) {
         setHasSaveGame(true);
       }
     },
-    [quests, consequenceFlags]
+    [quests, consequenceFlags, bossEncounter]
   );
 
   // Meaningful state changes converge into one debounced primary autosave.
@@ -122,6 +125,7 @@ export function App() {
       setChronicle(saved.chronicle);
       setQuests(saved.quests?.length ? saved.quests : createQuestStates());
       setConsequenceFlags(saved.consequenceFlags ?? {});
+      setBossEncounter(saved.bossEncounter ?? createIronWardenEncounter());
       setPhase('exploration');
       sound.playHeal();
       addChronicle('narrative', '📂 Checkpoint petualangan berhasil dimuat dari arsip Guild.');
@@ -622,6 +626,18 @@ export function App() {
         addChronicle('narrative', `✨ +${xpResult.awarded} XP.`);
       }
 
+      if (enemy.id === 'boss_iron_warden') {
+        const bossResult = applyBossDamage(bossEncounter, totalDamage);
+        setBossEncounter(bossResult.state.hp <= 0 ? markBossDefeated(bossResult.state) : bossResult.state);
+        if (bossResult.state.hp <= 0) {
+          const relic = currentRoom.interactables.find((item) => item.id === 'relic_pedestal');
+          if (relic) setPlayer((p) => p ? claimInteractableLoot(p, currentRoom, relic) : p);
+          advanceQuest('secure_relic');
+          setPhase('victory');
+        }
+        if (bossResult.transitioned) addChronicle('combat', `⚠️ Iron Warden memasuki fase ${bossResult.state.phase.toUpperCase()}!`);
+      }
+
       // Update enemy HP in room
       setRooms((prev) => ({
         ...prev,
@@ -694,6 +710,13 @@ export function App() {
       }
       return { ...enemy, x: ex, y: ey };
     });
+
+    if (currentRoomId === 'room_sanctum') {
+      const bossTurn = resolveBossTurn(bossEncounter, bossEncounter.turn + 1);
+      setBossEncounter(bossTurn.state);
+      if (bossTurn.telegraph) addChronicle('combat', `🔴 TELEGRAPH: ${bossTurn.telegraph.name} — keluar dari area ${bossTurn.telegraph.area} tile!`);
+      if (bossTurn.resolvedAttack) addChronicle('combat', `💥 ${bossTurn.resolvedAttack.name} meledak di arena!`);
+    }
 
     // Update enemies in room
     setRooms((prev) => ({
@@ -803,6 +826,7 @@ export function App() {
     setPhase('creation');
     setSelectedSkill(null);
     setActiveRoll(null);
+    setBossEncounter(createIronWardenEncounter());
     setQuests(createQuestStates()); setConsequenceFlags({}); setChoice(null);
   };
 
