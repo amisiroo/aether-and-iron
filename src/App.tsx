@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Entity,
   Room,
@@ -27,8 +27,13 @@ import { Trophy, RefreshCw } from 'lucide-react';
 import { sound } from './utils/audio';
 import { findPath, Point } from './core/map';
 import { decideEnemyAction } from './core/enemyAi';
-
-const SAVE_KEY = 'aether_and_iron_save_v1';
+import {
+  LEGACY_SAVE_KEY,
+  SAVE_KEY,
+  createDebouncedAutosave,
+  readSave,
+  writeSave,
+} from './core/persistence';
 
 interface FloatingText {
   id: string;
@@ -60,19 +65,9 @@ export function App() {
   const [hasSaveGame, setHasSaveGame] = useState<boolean>(false);
   const [isMinimapOpen, setIsMinimapOpen] = useState<boolean>(false);
 
-  // Check saved game on mount
+  // Check saved game on mount; malformed saves are ignored by the persistence module.
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(SAVE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed?.player && parsed?.currentRoomId) {
-          setHasSaveGame(true);
-        }
-      }
-    } catch {
-      // ignore
-    }
+    setHasSaveGame(Boolean(readSave()));
   }, []);
 
   // Story Chronicle Log
@@ -87,42 +82,37 @@ export function App() {
 
   const currentRoom = rooms[currentRoomId];
 
+  const autosave = useRef<{ schedule: () => void; cancel: () => void } | null>(null);
+
   // Helper to save state
   const saveState = useCallback(
     (hero: Entity, rId: string, rms: Record<string, Room>, ch: ChronicleEntry[]) => {
-      try {
-        localStorage.setItem(
-          SAVE_KEY,
-          JSON.stringify({
-            player: hero,
-            currentRoomId: rId,
-            rooms: rms,
-            chronicle: ch.slice(0, 30),
-          })
-        );
+      if (writeSave({ player: hero, currentRoomId: rId, rooms: rms, chronicle: ch.slice(0, 30) })) {
         setHasSaveGame(true);
-      } catch {
-        // ignore
       }
     },
     []
   );
 
+  // Meaningful state changes converge into one debounced primary autosave.
+  useEffect(() => {
+    autosave.current ??= createDebouncedAutosave(() => {
+      if (player) saveState(player, currentRoomId, rooms, chronicle);
+    });
+    if (player && phase !== 'creation') autosave.current.schedule();
+    return () => autosave.current?.cancel();
+  }, [player, rooms, currentRoomId, chronicle, phase, saveState]);
+
   const handleLoadGame = () => {
-    try {
-      const saved = localStorage.getItem(SAVE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        setPlayer(parsed.player);
-        setCurrentRoomId(parsed.currentRoomId);
-        setRooms(parsed.rooms);
-        setChronicle(parsed.chronicle);
-        setPhase('exploration');
-        sound.playHeal();
-        addChronicle('narrative', '📂 Checkpoint petualangan berhasil dimuat dari arsip Guild.');
-      }
-    } catch (err) {
-      console.warn('Failed to load save', err);
+    const saved = readSave();
+    if (saved) {
+      setPlayer(saved.player);
+      setCurrentRoomId(saved.currentRoomId);
+      setRooms(saved.rooms);
+      setChronicle(saved.chronicle);
+      setPhase('exploration');
+      sound.playHeal();
+      addChronicle('narrative', '📂 Checkpoint petualangan berhasil dimuat dari arsip Guild.');
     }
   };
 
@@ -753,9 +743,8 @@ export function App() {
   };
 
   const handleRestart = () => {
-    try {
-      localStorage.removeItem(SAVE_KEY);
-    } catch {}
+    localStorage.removeItem(SAVE_KEY);
+    localStorage.removeItem(LEGACY_SAVE_KEY);
     setHasSaveGame(false);
     setRooms(CHAPTER_1_ROOMS);
     setCurrentRoomId('room_entrance');
