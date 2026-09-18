@@ -26,6 +26,7 @@ import { CanvasGrid } from './renderer/CanvasGrid';
 import { Trophy, RefreshCw } from 'lucide-react';
 import { sound } from './utils/audio';
 import { findPath, Point } from './core/map';
+import { decideEnemyAction } from './core/enemyAi';
 
 const SAVE_KEY = 'aether_and_iron_save_v1';
 
@@ -613,117 +614,43 @@ export function App() {
     let currentPlayer = { ...player };
 
     const updatedEnemies = aliveEnemies.map((enemy) => {
-      let ex = enemy.x;
-      let ey = enemy.y;
+      const decision = decideEnemyAction(enemy, [currentPlayer], currentRoom.layout, aliveEnemies.filter((other) => other.id !== enemy.id).map(({ x, y }) => ({ x, y })));
+      let ex = decision.destination.x;
+      let ey = decision.destination.y;
 
-      // Distance to player
-      const dist = Math.max(Math.abs(ex - currentPlayer.x), Math.abs(ey - currentPlayer.y));
-      const attackRange = enemy.skills[0]?.range || 1;
-
-      // 1. Move closer if out of range
-      if (dist > attackRange) {
-        const dx = Math.sign(currentPlayer.x - ex);
-        const dy = Math.sign(currentPlayer.y - ey);
-
-        // Simple step
-        const nextX = ex + dx;
-        const nextY = ey + dy;
-        const tileChar = currentRoom.layout[nextY]?.[nextX];
-        if (tileChar !== '#' && (nextX !== currentPlayer.x || nextY !== currentPlayer.y)) {
-          ex = nextX;
-          ey = nextY;
-        }
-      }
-
-      // 2. Attack player if in range
-      const newDist = Math.max(Math.abs(ex - currentPlayer.x), Math.abs(ey - currentPlayer.y));
-      if (newDist <= attackRange) {
+      // Attack is still resolved here to preserve the existing cover, critical,
+      // downed, death-save, and cooldown/UI feedback behavior.
+      if (decision.action === 'attack' && decision.targetId === currentPlayer.id) {
+        const attackRange = enemy.skills[0]?.range || 1;
         const isPlayerDowned = currentPlayer.hp <= 0 || currentPlayer.conditions.includes('downed');
-
-        // Line of sight cover check
-        const enemyHasCover = checkInterveningCover(
-          ex,
-          ey,
-          currentPlayer.x,
-          currentPlayer.y,
-          currentRoom.layout
-        );
-
-        // Merciless AI rule + Cover check:
-        // If player is downed, enemy attacks with Advantage!
-        // If player is behind rubble/cover from ranged attack, Disadvantage!
+        const enemyHasCover = checkInterveningCover(ex, ey, currentPlayer.x, currentPlayer.y, currentRoom.layout);
         let mode: RollMode = isPlayerDowned ? 'advantage' : 'normal';
-        if (enemyHasCover && attackRange > 1) {
-          mode = mode === 'advantage' ? 'normal' : 'disadvantage';
-        }
-
+        if (enemyHasCover && attackRange > 1) mode = mode === 'advantage' ? 'normal' : 'disadvantage';
         const strMod = getAbilityModifier(enemy.attributes.STR);
-        const enemyRoll = rollD20(
-          strMod,
-          mode,
-          currentPlayer.ac,
-          `${enemy.name} attacks ${currentPlayer.name} ${
-            isPlayerDowned
-              ? '[MERCILESS STRIKE]'
-              : enemyHasCover && attackRange > 1
-              ? '[COVER DISADVANTAGE]'
-              : ''
-          }`
-        );
-
+        const enemyRoll = rollD20(strMod, mode, currentPlayer.ac, `${enemy.name} attacks ${currentPlayer.name}`);
         if (enemyRoll.success) {
           sound.playHit();
           if (isPlayerDowned) {
-            // MERCILESS HIT: Inflicts 2 Death Save failures directly!
             const newFailures = currentPlayer.deathSaves.failures + 2;
-            const isDead = newFailures >= 3;
-            currentPlayer.deathSaves = {
-              ...currentPlayer.deathSaves,
-              failures: newFailures,
-              dead: isDead,
-            };
-
+            currentPlayer.deathSaves = { ...currentPlayer.deathSaves, failures: newFailures, dead: newFailures >= 3 };
             triggerFloatingText(currentPlayer.x, currentPlayer.y, '+2 DEATH FAILS!', '#ef4444');
-            addChronicle(
-              'death_save',
-              `💀 MERCILESS STRIKE! ${enemy.name} menghujam petualang yang tak berdaya! +2 KEGAGALAN DEATH SAVE LANGSUNG! [${newFailures}/3]`
-            );
-
-            if (isDead) {
-              sound.playDefeat();
-              setPhase('game_over');
-            }
+            addChronicle('death_save', `💀 MERCILESS STRIKE! ${enemy.name} +2 DEATH SAVE FAILURES [${newFailures}/3]`);
+            if (newFailures >= 3) setPhase('game_over');
           } else {
-            // Normal hit to alive player
             const enemyDmg = rollDamageString(enemy.skills[0]?.damageDice || '1d6', strMod, enemyRoll.isCrit);
-            const newHp = Math.max(0, currentPlayer.hp - enemyDmg.total);
-            currentPlayer.hp = newHp;
+            currentPlayer.hp = Math.max(0, currentPlayer.hp - enemyDmg.total);
             triggerFloatingText(currentPlayer.x, currentPlayer.y, `-${enemyDmg.total} HP`, '#ef4444');
-
-            addChronicle(
-              'combat',
-              `💥 ${enemy.name} MENYERANG! Mengenai ${currentPlayer.name} sebesar ${enemyDmg.total} damage (${enemyDmg.details}).`
-            );
-
-            if (newHp <= 0) {
-              sound.playDefeat();
+            addChronicle('combat', `💥 ${enemy.name} MENYERANG! ${enemyDmg.total} damage.`);
+            if (currentPlayer.hp <= 0) {
               currentPlayer.conditions = [...currentPlayer.conditions.filter((c) => c !== 'downed'), 'downed'];
-              addChronicle(
-                'death_save',
-                '⚠️ HP MENCAPAI 0! Petualang tersungkur (DOWNED). Waktunya melempar Death Saving Throw!'
-              );
+              addChronicle('death_save', '⚠️ HP MENCAPAI 0! Petualang tersungkur (DOWNED).');
             }
           }
         } else {
           sound.playMiss();
-          triggerFloatingText(currentPlayer.x, currentPlayer.y, 'DODGED!', '#38bdf8');
-          addChronicle(
-            'combat',
-            `🛡️ ${currentPlayer.name} berhasil menangkis serangan ${enemy.name}!`
-          );
+          addChronicle('combat', `🛡️ ${currentPlayer.name} berhasil menangkis serangan ${enemy.name}!`);
         }
       }
-
       return { ...enemy, x: ex, y: ey };
     });
 
